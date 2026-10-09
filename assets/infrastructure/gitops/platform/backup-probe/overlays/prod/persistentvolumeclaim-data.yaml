@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data
+  namespace: backup-probe
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm
+spec:
+  storageClassName: platform-gp3
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

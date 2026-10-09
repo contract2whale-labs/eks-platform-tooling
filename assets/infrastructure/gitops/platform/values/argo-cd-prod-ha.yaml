@@ -1,0 +1,41 @@
+# gitops/platform/values/argo-cd-prod-ha.yaml
+# 동기화 엔진과 상태 (적용은 운영 환경): prod 의 HA 프로파일 — argo-cd.yaml 위에 겹쳐 씁니다. Application 의 valueFiles 순서는 argo-cd.yaml → argo-cd-prod-ha.yaml → argo-cd-prod.yaml입니다. 환경별 값은 승인된 delivery receipt와 registry를 사용하는 publisher가 만들고, bootstrap.py가 이 값 파일들을 사용합니다.
+repoServer:
+  replicas: 2                              # 예: 2 (렌더 · 캐시 이중화)
+  pdb:
+    enabled: true                          # 예: true (드레인 시 최소 1개 유지)
+    minAvailable: 1
+  topologySpreadConstraints:
+    - maxSkew: 1                           # 예: 노드 사이에 고르게
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels: {app.kubernetes.io/name: argocd-repo-server}
+server:
+  replicas: 2                              # 예: 2 (UI · API 이중화)
+  pdb:
+    enabled: true
+    minAvailable: 1
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels: {app.kubernetes.io/name: argocd-server}
+controller:
+  pdb:
+    enabled: true                          # 예: true (StatefulSet 1개도 드레인 순서를 통제)
+    minAvailable: 1
+redis:
+  enabled: false                           # 예: false (단일 redis 끔)
+redis-ha:
+  enabled: true                            # 예: true (Redis Sentinel 3 + HAProxy — 캐시 분산)
+  haproxy:
+    enabled: true
+    replicas: 2
+  redis:
+    resources:
+      requests: {cpu: 100m, memory: 128Mi}
+      limits: {memory: 256Mi}
+notifications:
+  argocdUrl: https://argocd.app.REPLACE.example # 예: 운영 환경 가 HTTPRoute 주소로 바꿈 (알림 본문 링크)

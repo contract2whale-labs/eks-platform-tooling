@@ -1,0 +1,155 @@
+{
+  "schema_version": 2,
+  "milestones": [
+    {
+      "milestone": "PREPARATION",
+      "title": "도구 준비",
+      "aliases": [
+        "preparation"
+      ]
+    },
+    {
+      "milestone": "STATE_FOUNDATION",
+      "title": "State 기반",
+      "aliases": [
+        "state"
+      ]
+    },
+    {
+      "milestone": "VPC_NETWORK",
+      "title": "VPC 네트워크",
+      "aliases": [
+        "vpc",
+        "network"
+      ]
+    },
+    {
+      "milestone": "NETWORK_BOUNDARIES",
+      "title": "네트워크 경계와 로그",
+      "aliases": [
+        "eks-network",
+        "network-boundaries"
+      ]
+    },
+    {
+      "milestone": "ACCOUNT_BASELINE",
+      "title": "계정 보안 기반",
+      "aliases": [
+        "account",
+        "account-baseline"
+      ]
+    },
+    {
+      "milestone": "TRANSIT_NETWORK",
+      "title": "네트워크 연결과 검사",
+      "aliases": [
+        "transit"
+      ]
+    },
+    {
+      "milestone": "CLUSTER_CONTROL",
+      "title": "클러스터와 접속 경로",
+      "aliases": [
+        "control-plane",
+        "eks-control-plane"
+      ]
+    },
+    {
+      "milestone": "NODE_CAPACITY",
+      "title": "노드와 Add-on",
+      "aliases": [
+        "nodes",
+        "eks-nodes"
+      ]
+    },
+    {
+      "milestone": "CORE_GUARDRAILS",
+      "title": "클러스터 보안 기반",
+      "aliases": [
+        "core"
+      ]
+    },
+    {
+      "milestone": "SERVICE_MESH",
+      "title": "서비스 메시",
+      "aliases": [
+        "mesh"
+      ]
+    },
+    {
+      "milestone": "SERVICE_EXPOSURE",
+      "title": "서비스 진입 경로",
+      "aliases": [
+        "gateway"
+      ]
+    },
+    {
+      "milestone": "OPERATIONS",
+      "title": "운영 도구",
+      "aliases": [
+        "operations"
+      ]
+    },
+    {
+      "milestone": "OBSERVABILITY",
+      "title": "관측 파이프라인",
+      "aliases": [
+        "observability"
+      ]
+    },
+    {
+      "milestone": "QUEUE_TRANSITION",
+      "title": "메시지 큐 전환",
+      "aliases": [
+        "queue"
+      ]
+    },
+    {
+      "milestone": "ACCOUNT_INTEGRATIONS",
+      "title": "계정 통합",
+      "aliases": [
+        "integrations",
+        "account-reporting"
+      ]
+    },
+    {
+      "milestone": "DELIVERY_PLATFORM",
+      "title": "배포 플랫폼",
+      "aliases": [
+        "delivery",
+        "deployment"
+      ]
+    },
+    {
+      "milestone": "APPLICATION_DATA",
+      "title": "애플리케이션 데이터",
+      "aliases": [
+        "data"
+      ]
+    },
+    {
+      "milestone": "RELEASE_PIPELINE",
+      "title": "릴리스 파이프라인",
+      "aliases": [
+        "app-delivery",
+        "release",
+        "application-delivery"
+      ]
+    },
+    {
+      "milestone": "PRODUCTION_PLATFORM",
+      "title": "운영 환경 구성",
+      "aliases": [
+        "production"
+      ]
+    },
+    {
+      "milestone": "INCIDENT_OPERATIONS",
+      "title": "장애 대응과 복구",
+      "aliases": [
+        "incident-drills",
+        "incidents"
+      ]
+    }
+  ]
+}

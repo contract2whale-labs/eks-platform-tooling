@@ -1,0 +1,51 @@
+# gitops/platform/monitoring-resources/overlays/prod/80-application-rules.yaml
+# 오류율 · 지연 규칙은 최소 요청 수 조건(1 req/s)을 and on 으로 묶어 표본이 적을 때의 큰 비율을 걸러 냅니다. tests/application-rules.test.yaml 이 promtool test rules 로 시험합니다.
+# 정상 기준과 공통 검사: 오류율 · 지연 규칙과 최소 요청 수 조건을 업무 요청(http_route 가 /health 가 아닌 요청)으로 좁혔습니다 — kubelet 프로브(readiness 5초 · liveness 20초)가 섞이면 비율과 p95 가 업무 요청을 뜻하지 않습니다.
+# ApplicationNoResponses 는 프로브까지 포함한 HTTP 응답이 하나도 없는 상태라 업무 무응답 탐지가 아닙니다 (식은 그대로, 설명만 정정).
+apiVersion: monitoring.coreos.com/v1 # 예: monitoring.coreos.com/v1
+kind: PrometheusRule                 # 예: PrometheusRule
+metadata:
+  name: application                  # 예: application
+  namespace: monitoring              # 예: monitoring
+  labels:
+    release: platform-monitoring     # 예: platform-monitoring (ruleSelector; 없으면 적용은 되지만 로드되지 않음)
+spec:
+  groups:
+    - name: application              # 예: 룰 그룹
+      interval: 30s                  # 예: 30s
+      rules:
+        - alert: ApplicationErrorRateHigh # 예: 업무 요청의 5xx 비율 5% 초과 + 업무 요청 1건/s 이상
+          expr: |
+            (sum by (service_name) (rate(course_http_requests_total{http_route!="/health",status_code=~"5.."}[5m]))
+              / sum by (service_name) (rate(course_http_requests_total{http_route!="/health"}[5m]))) > 0.05
+            and on (service_name) sum by (service_name) (rate(course_http_requests_total{http_route!="/health"}[5m])) >= 1
+          for: 5m                    # 예: 5m
+          labels: {severity: critical} # 예: critical
+          annotations:
+            summary: "{{ $labels.service_name }} business 5xx ratio is above 5% with at least 1 req/s" # 예: 메일 제목의 한 줄 (프로브 제외)
+        - alert: ApplicationLatencyHigh # 예: 업무 요청 p95 1초 초과 + 업무 요청 1건/s 이상
+          expr: |
+            histogram_quantile(0.95, sum by (service_name, le) (rate(course_http_request_duration_seconds_bucket{http_route!="/health"}[5m]))) > 1
+            and on (service_name) sum by (service_name) (rate(course_http_requests_total{http_route!="/health"}[5m])) >= 1
+          for: 10m                   # 예: 10m
+          labels: {severity: warning} # 예: warning
+          annotations:
+            summary: "{{ $labels.service_name }} business p95 latency is above 1s with at least 1 req/s" # 예: 메일 제목의 한 줄 (프로브 제외)
+        - alert: ApplicationNoResponses # 예: 대상은 있는데 프로브까지 포함한 HTTP 응답이 없음 (업무 요청만 끊긴 상태는 이 규칙이 보지 않음)
+          expr: sum by (service_name) (rate(course_http_requests_total[10m])) == 0
+          for: 15m                   # 예: 15m
+          labels: {severity: warning} # 예: warning
+          annotations:
+            summary: "{{ $labels.service_name }} has served no HTTP responses, health probes included, for 15 minutes" # 예: 메일 제목의 한 줄
+        - alert: ApplicationTargetMissing # 예: 계열 자체가 사라짐 (없음을 오류 0 건으로 읽지 않음)
+          expr: absent(course_http_requests_total)
+          for: 15m                   # 예: 15m
+          labels: {severity: critical} # 예: critical
+          annotations:
+            summary: Application request metrics are absent; do not read missing data as zero errors # 예: 이 문장을 그대로 둠
+        - alert: ApplicationHttp503 # 예: 최근 5분 503 증가분 > 0 이 1분 연속 (DB · S3 원인은 로그 · span 으로 구분)
+          expr: sum by (service_name) (increase(course_http_requests_total{status_code="503"}[5m])) > 0
+          for: 1m                    # 예: 1m
+          labels: {severity: warning} # 예: warning
+          annotations:
+            summary: "{{ $labels.service_name }} returned HTTP 503 in the last 5 minutes" # 예: 메일 제목의 한 줄

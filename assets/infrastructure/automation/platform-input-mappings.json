@@ -1,0 +1,1258 @@
+[
+  {
+    "root": "alerting",
+    "field": "cluster_name",
+    "type": "string",
+    "source": {
+      "output": "alerting_contract",
+      "pointer": "/cluster_name"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/monitoring/values/{environment}-alerting.yaml",
+        "pointer": "/prometheus/prometheusSpec/externalLabels/cluster"
+      }
+    ]
+  },
+  {
+    "root": "alerting",
+    "field": "environment",
+    "type": "string",
+    "source": {
+      "output": "alerting_contract",
+      "pointer": "/environment"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/monitoring/values/{environment}-alerting.yaml",
+        "pointer": "/prometheus/prometheusSpec/externalLabels/environment"
+      }
+    ]
+  },
+  {
+    "root": "alerting",
+    "field": "region",
+    "type": "region",
+    "source": {
+      "output": "alerting_contract",
+      "pointer": "/region"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/monitoring/values/{environment}-alerting.yaml",
+        "pointer": "/alertmanager/config/receivers/1/sns_configs/0/sigv4/region"
+      }
+    ]
+  },
+  {
+    "root": "alerting",
+    "field": "service_account",
+    "type": "string",
+    "source": {
+      "output": "alerting_contract",
+      "pointer": "/alertmanager_service_account"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/monitoring/values/{environment}-alerting.yaml",
+        "pointer": "/alertmanager/serviceAccount/name"
+      }
+    ]
+  },
+  {
+    "root": "alerting",
+    "field": "topic_arn",
+    "type": "arn",
+    "source": {
+      "output": "alerting_contract",
+      "pointer": "/topic_arn"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/monitoring/values/{environment}-alerting.yaml",
+        "pointer": "/alertmanager/config/receivers/1/sns_configs/0/topic_arn"
+      }
+    ]
+  },
+  {
+    "root": "app-auth",
+    "field": "admin_cors_literal",
+    "type": "string",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/admin_cors_literal"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/kustomization.yaml",
+        "pointer": "/configMapGenerator/0/literals/10"
+      }
+    ]
+  },
+  {
+    "root": "app-auth",
+    "field": "api_scope",
+    "type": "string",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/api_scope"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/gateway-auth/overlays/{environment}/securitypolicy-app-api-jwt.yaml",
+        "pointer": "/spec/authorization/rules/0/principal/jwt/scopes/0"
+      }
+    ]
+  },
+  {
+    "root": "app-auth",
+    "field": "auth_cors_literal",
+    "type": "string",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/auth_cors_literal"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/kustomization.yaml",
+        "pointer": "/configMapGenerator/0/literals/11"
+      }
+    ]
+  },
+  {
+    "root": "app-auth",
+    "field": "backend_literal",
+    "type": "string",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/backend_literal"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/kustomization.yaml",
+        "pointer": "/configMapGenerator/0/literals/8"
+      }
+    ]
+  },
+  {
+    "root": "app-auth",
+    "field": "issuer",
+    "type": "endpoint",
+    "source": {
+      "output": "ui_auth",
+      "pointer": "/issuer"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/gateway-auth/overlays/{environment}/securitypolicy-app-api-jwt.yaml",
+        "pointer": "/spec/jwt/providers/0/issuer"
+      }
+    ]
+  },
+  {
+    "root": "app-auth",
+    "field": "jwks_uri",
+    "type": "endpoint",
+    "source": {
+      "output": "ui_auth",
+      "pointer": "/jwks_uri"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/gateway-auth/overlays/{environment}/securitypolicy-app-api-jwt.yaml",
+        "pointer": "/spec/jwt/providers/0/remoteJWKS/uri"
+      }
+    ]
+  },
+  {
+    "root": "app-auth",
+    "field": "store_cors_literal",
+    "type": "string",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/store_cors_literal"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/kustomization.yaml",
+        "pointer": "/configMapGenerator/0/literals/9"
+      }
+    ]
+  },
+  {
+    "root": "app-auth",
+    "field": "ui_client_id",
+    "type": "string",
+    "source": {
+      "output": "ui_auth",
+      "pointer": "/client_id"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/gateway-auth/overlays/{environment}/securitypolicy-app-api-jwt.yaml",
+        "pointer": "/spec/authorization/rules/0/principal/jwt/claims/0/values/0"
+      }
+    ]
+  },
+  {
+    "root": "app-auth",
+    "field": "ui_hostname",
+    "type": "string",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/ui_hostname"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/route-hostname.patch.yaml",
+        "pointer": "/0/value/0"
+      },
+      {
+        "file": "gitops/apps/commerce-web/overlays/{environment}/route-hostname.patch.yaml",
+        "pointer": "/0/value/0"
+      },
+      {
+        "file": "gitops/platform/tenant-baseline/overlays/{environment}/namespace-contract2whale-demo.yaml",
+        "pointer": "/metadata/annotations/platform.example~1hostname"
+      }
+    ]
+  },
+  {
+    "root": "app-auth",
+    "field": "ui_origin",
+    "type": "endpoint",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/ui_origin"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/runtime-config.patch.yaml",
+        "pointer": "/spec/template/spec/containers/0/env/0/value"
+      },
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/runtime-config.patch.yaml",
+        "pointer": "/spec/template/spec/containers/0/env/1/value"
+      },
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/runtime-config.patch.yaml",
+        "pointer": "/spec/template/spec/containers/0/env/2/value"
+      },
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/runtime-config.patch.yaml",
+        "pointer": "/spec/template/spec/containers/0/env/3/value"
+      }
+    ]
+  },
+  {
+    "root": "app-auth",
+    "field": "verifier_client_id",
+    "type": "string",
+    "source": {
+      "output": "verifier_auth",
+      "pointer": "/client_id"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/gateway-auth/overlays/{environment}/securitypolicy-app-api-jwt.yaml",
+        "pointer": "/spec/authorization/rules/0/principal/jwt/claims/0/values/1"
+      }
+    ]
+  },
+  {
+    "root": "core",
+    "field": "cert_manager_service_account",
+    "type": "string",
+    "source": {
+      "output": "core_identity_contract",
+      "pointer": "/service_account"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/cert-manager/values/{environment}.yaml",
+        "pointer": "/serviceAccount/name"
+      }
+    ]
+  },
+  {
+    "root": "core",
+    "field": "public_zone_id",
+    "type": "string",
+    "source": {
+      "output": "core_identity_contract",
+      "pointer": "/public_zone_id"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/gateway/overlays/{environment}/clusterissuer-letsencrypt-staging.yaml",
+        "pointer": "/spec/acme/solvers/0/dns01/route53/hostedZoneID"
+      },
+      {
+        "file": "gitops/platform/gateway/overlays/{environment}/clusterissuer-letsencrypt-production.yaml",
+        "pointer": "/spec/acme/solvers/0/dns01/route53/hostedZoneID"
+      }
+    ]
+  },
+  {
+    "root": "core",
+    "field": "public_zone_name",
+    "type": "string",
+    "source": {
+      "output": "core_identity_contract",
+      "pointer": "/public_zone_name"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/gateway/overlays/{environment}/clusterissuer-letsencrypt-staging.yaml",
+        "pointer": "/spec/acme/solvers/0/selector/dnsZones/0"
+      },
+      {
+        "file": "gitops/platform/gateway/overlays/{environment}/clusterissuer-letsencrypt-production.yaml",
+        "pointer": "/spec/acme/solvers/0/selector/dnsZones/0"
+      },
+      {
+        "file": "gitops/platform/gateway/overlays/{environment}/certificate-platform-gateway.yaml",
+        "pointer": "/spec/dnsNames/0"
+      }
+    ]
+  },
+  {
+    "root": "core",
+    "field": "region",
+    "type": "region",
+    "source": {
+      "metadata": "region"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/gateway/overlays/{environment}/clusterissuer-letsencrypt-staging.yaml",
+        "pointer": "/spec/acme/solvers/0/dns01/route53/region"
+      },
+      {
+        "file": "gitops/platform/gateway/overlays/{environment}/clusterissuer-letsencrypt-production.yaml",
+        "pointer": "/spec/acme/solvers/0/dns01/route53/region"
+      }
+    ]
+  },
+  {
+    "root": "data",
+    "field": "frontend_backend_url",
+    "type": "endpoint",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/frontend_backend_url"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-web/overlays/{environment}/runtime-config.patch.yaml",
+        "pointer": "/0/value/value"
+      }
+    ]
+  },
+  {
+    "root": "data",
+    "field": "media_bucket",
+    "type": "bucket",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/media_bucket"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/runtime-config.patch.yaml",
+        "pointer": "/spec/template/spec/containers/0/env/6/value"
+      }
+    ]
+  },
+  {
+    "root": "data",
+    "field": "media_bucket_literal",
+    "type": "string",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/media_bucket_literal"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/kustomization.yaml",
+        "pointer": "/configMapGenerator/0/literals/13"
+      }
+    ]
+  },
+  {
+    "root": "data",
+    "field": "media_prefix",
+    "type": "string",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/media_prefix"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/runtime-config.patch.yaml",
+        "pointer": "/spec/template/spec/containers/0/env/7/value"
+      }
+    ]
+  },
+  {
+    "root": "data",
+    "field": "media_prefix_literal",
+    "type": "string",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/media_prefix_literal"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/kustomization.yaml",
+        "pointer": "/configMapGenerator/0/literals/15"
+      }
+    ]
+  },
+  {
+    "root": "data",
+    "field": "media_url",
+    "type": "endpoint",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/media_url"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/runtime-config.patch.yaml",
+        "pointer": "/spec/template/spec/containers/0/env/8/value"
+      }
+    ]
+  },
+  {
+    "root": "data",
+    "field": "media_url_literal",
+    "type": "string",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/media_url_literal"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/kustomization.yaml",
+        "pointer": "/configMapGenerator/0/literals/14"
+      }
+    ]
+  },
+  {
+    "root": "data",
+    "field": "migration_source_name",
+    "type": "string",
+    "source": {
+      "output": "data_contract",
+      "pointer": "/credentials/migration_secret_name"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/externalsecret.patch.yaml",
+        "pointer": "/spec/dataFrom/1/extract/key",
+        "document_selector": {
+          "kind": "ExternalSecret",
+          "name": "commerce-api-migration"
+        }
+      }
+    ]
+  },
+  {
+    "root": "data",
+    "field": "region",
+    "type": "region",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/region"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/runtime-config.patch.yaml",
+        "pointer": "/spec/template/spec/containers/0/env/4/value"
+      },
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/runtime-config.patch.yaml",
+        "pointer": "/spec/template/spec/containers/0/env/5/value"
+      }
+    ]
+  },
+  {
+    "root": "data",
+    "field": "region_literal",
+    "type": "string",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/region_literal"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/kustomization.yaml",
+        "pointer": "/configMapGenerator/0/literals/12"
+      }
+    ]
+  },
+  {
+    "root": "data",
+    "field": "resource_attributes",
+    "type": "string",
+    "source": {
+      "output": "application_input_values",
+      "pointer": "/resource_attributes"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/runtime-config.patch.yaml",
+        "pointer": "/spec/template/spec/containers/0/env/9/value"
+      }
+    ]
+  },
+  {
+    "root": "data",
+    "field": "runtime_source_name",
+    "type": "string",
+    "source": {
+      "output": "data_contract",
+      "pointer": "/credentials/runtime_secret_name"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/externalsecret.patch.yaml",
+        "pointer": "/spec/dataFrom/0/extract/key",
+        "document_selector": {
+          "kind": "ExternalSecret",
+          "name": "commerce-api-runtime"
+        }
+      },
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/externalsecret.patch.yaml",
+        "pointer": "/spec/dataFrom/0/extract/key",
+        "document_selector": {
+          "kind": "ExternalSecret",
+          "name": "commerce-api-migration"
+        }
+      }
+    ]
+  },
+  {
+    "root": "delivery",
+    "field": "account_id",
+    "type": "string",
+    "source": {
+      "output": "delivery_contract",
+      "pointer": "/account_id"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/overlays/{environment}/env.yaml",
+        "pointer": "/data/ACCOUNT_ID"
+      }
+    ]
+  },
+  {
+    "root": "delivery",
+    "field": "cluster_name",
+    "type": "string",
+    "source": {
+      "output": "delivery_contract",
+      "pointer": "/cluster_name"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/overlays/{environment}/env.yaml",
+        "pointer": "/data/CLUSTER_NAME"
+      }
+    ]
+  },
+  {
+    "root": "delivery",
+    "field": "ecr_image_pattern",
+    "type": "string",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/ecr_image_pattern"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/overlays/{environment}/env.yaml",
+        "pointer": "/data/ECR_IMAGE_PATTERN"
+      }
+    ]
+  },
+  {
+    "root": "delivery",
+    "field": "ecr_registry",
+    "type": "string",
+    "source": {
+      "output": "delivery_contract",
+      "pointer": "/ecr_registry"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/overlays/{environment}/env.yaml",
+        "pointer": "/data/ECR_REGISTRY"
+      }
+    ]
+  },
+  {
+    "root": "delivery",
+    "field": "environment",
+    "type": "string",
+    "source": {
+      "output": "delivery_contract",
+      "pointer": "/environment"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/overlays/{environment}/env.yaml",
+        "pointer": "/data/ENVIRONMENT"
+      }
+    ]
+  },
+  {
+    "root": "delivery",
+    "field": "gitops_ssh_url",
+    "type": "string",
+    "source": {
+      "output": "delivery_contract",
+      "pointer": "/argocd/gitops_ssh_url"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/overlays/{environment}/env.yaml",
+        "pointer": "/data/GITOPS_SSH_URL"
+      }
+    ]
+  },
+  {
+    "root": "delivery",
+    "field": "oidc_client_id",
+    "type": "string",
+    "source": {
+      "output": "delivery_contract",
+      "pointer": "/argocd/oidc_client_id"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/values/argo-cd-{environment}.yaml",
+        "pointer": "/configs/cm/oidc.config",
+        "embedded_pointer": "/clientID"
+      }
+    ]
+  },
+  {
+    "root": "delivery",
+    "field": "oidc_issuer",
+    "type": "string",
+    "source": {
+      "output": "delivery_contract",
+      "pointer": "/argocd/oidc_issuer"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/values/argo-cd-{environment}.yaml",
+        "pointer": "/configs/cm/oidc.config",
+        "embedded_pointer": "/issuer"
+      }
+    ]
+  },
+  {
+    "root": "delivery",
+    "field": "oidc_secret_name",
+    "type": "string",
+    "source": {
+      "output": "delivery_contract",
+      "pointer": "/argocd/oidc_secret_name"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/overlays/{environment}/env.yaml",
+        "pointer": "/data/OIDC_SECRET_NAME"
+      }
+    ]
+  },
+  {
+    "root": "delivery",
+    "field": "region",
+    "type": "region",
+    "source": {
+      "output": "delivery_contract",
+      "pointer": "/region"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/overlays/{environment}/env.yaml",
+        "pointer": "/data/REGION"
+      }
+    ]
+  },
+  {
+    "root": "delivery",
+    "field": "repo_secret_name",
+    "type": "string",
+    "source": {
+      "output": "delivery_contract",
+      "pointer": "/argocd/repo_secret_name"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/overlays/{environment}/env.yaml",
+        "pointer": "/data/REPO_SECRET_NAME"
+      }
+    ]
+  },
+  {
+    "root": "delivery",
+    "field": "secrets_role_arn",
+    "type": "arn",
+    "source": {
+      "output": "delivery_contract",
+      "pointer": "/argocd/secrets_role_arn"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/overlays/{environment}/env.yaml",
+        "pointer": "/data/ARGOCD_SECRETS_ROLE_ARN"
+      }
+    ]
+  },
+  {
+    "root": "gateway",
+    "field": "cluster_name",
+    "type": "string",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/cluster_name"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/aws-load-balancer-controller/values/{environment}-infrastructure.yaml",
+        "pointer": "/clusterName"
+      },
+      {
+        "file": "gitops/platform/external-dns/values/{environment}-infrastructure.yaml",
+        "pointer": "/txtOwnerId"
+      }
+    ]
+  },
+  {
+    "root": "gateway",
+    "field": "dashboard_hostname",
+    "type": "string",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/dashboard_hostname"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/namespaces/overlays/{environment}/dashboard-namespace.patch.yaml",
+        "pointer": "/metadata/annotations/platform.example~1hostname"
+      },
+      {
+        "file": "gitops/platform/monitoring-resources/overlays/{environment}/85-dashboard-route.yaml",
+        "pointer": "/spec/hostnames/0"
+      }
+    ]
+  },
+  {
+    "root": "gateway",
+    "field": "dns_zone_id_argument",
+    "type": "string",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/dns_zone_id_argument"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/external-dns/values/{environment}-infrastructure.yaml",
+        "pointer": "/extraArgs/0"
+      }
+    ]
+  },
+  {
+    "root": "gateway",
+    "field": "dns_zone_name",
+    "type": "string",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/dns_zone_name"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/external-dns/values/{environment}-infrastructure.yaml",
+        "pointer": "/domainFilters/0"
+      }
+    ]
+  },
+  {
+    "root": "gateway",
+    "field": "dns_zone_type_argument",
+    "type": "string",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/dns_zone_type_argument"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/external-dns/values/{environment}-infrastructure.yaml",
+        "pointer": "/extraArgs/1"
+      }
+    ]
+  },
+  {
+    "root": "gateway",
+    "field": "nlb_scheme",
+    "type": "string",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/nlb_scheme"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/gateway/overlays/{environment}/envoyproxy-platform.yaml",
+        "pointer": "/spec/provider/kubernetes/envoyService/annotations/service.beta.kubernetes.io~1aws-load-balancer-scheme"
+      }
+    ]
+  },
+  {
+    "root": "gateway",
+    "field": "nlb_security_group_id",
+    "type": "string",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/nlb_security_group_id"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/gateway/overlays/{environment}/envoyproxy-platform.yaml",
+        "pointer": "/spec/provider/kubernetes/envoyService/annotations/service.beta.kubernetes.io~1aws-load-balancer-security-groups"
+      }
+    ]
+  },
+  {
+    "root": "gateway",
+    "field": "nlb_subnet_ids_csv",
+    "type": "string",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/nlb_subnet_ids_csv"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/gateway/overlays/{environment}/envoyproxy-platform.yaml",
+        "pointer": "/spec/provider/kubernetes/envoyService/annotations/service.beta.kubernetes.io~1aws-load-balancer-subnets"
+      }
+    ]
+  },
+  {
+    "root": "gateway",
+    "field": "region",
+    "type": "region",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/region"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/aws-load-balancer-controller/values/{environment}-infrastructure.yaml",
+        "pointer": "/region"
+      }
+    ]
+  },
+  {
+    "root": "gateway",
+    "field": "vpc_id",
+    "type": "string",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/vpc_id"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/aws-load-balancer-controller/values/{environment}-infrastructure.yaml",
+        "pointer": "/vpcId"
+      }
+    ]
+  },
+  {
+    "root": "identity",
+    "field": "application_secrets_region",
+    "type": "region",
+    "source": {
+      "metadata": "region"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/secretstore.patch.yaml",
+        "pointer": "/spec/provider/aws/region"
+      }
+    ]
+  },
+  {
+    "root": "identity",
+    "field": "application_secrets_role_arn",
+    "type": "arn",
+    "source": {
+      "output": "identity_contract",
+      "pointer": "/secrets_reader/role_arn"
+    },
+    "targets": [
+      {
+        "file": "gitops/apps/commerce-api/overlays/{environment}/secretstore.patch.yaml",
+        "pointer": "/spec/provider/aws/role"
+      }
+    ]
+  },
+  {
+    "root": "identity",
+    "field": "operator_image",
+    "type": "image",
+    "source": {
+      "output": "operator_image",
+      "pointer": ""
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/database-operations/requests/{environment}/job-database-bootstrap-reviewedrequest001.yaml",
+        "pointer": "/spec/template/spec/containers/0/image"
+      },
+      {
+        "file": "gitops/platform/database-operations/requests/{environment}/operator-check-job.yaml",
+        "pointer": "/spec/template/spec/containers/0/image"
+      }
+    ]
+  },
+  {
+    "root": "network",
+    "field": "vpc_cidr_block",
+    "type": "cidr",
+    "source": {
+      "output": "vpc_cidr_block",
+      "pointer": ""
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/mesh-policy/overlays/{environment}/authorization-policy.patch.yaml",
+        "pointer": "/spec/rules/0/from/0/source/ipBlocks/0"
+      }
+    ]
+  },
+  {
+    "root": "observability",
+    "field": "logs_bucket",
+    "type": "bucket",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/logs_bucket"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/loki/values/{environment}.yaml",
+        "pointer": "/loki/storage/bucketNames/chunks"
+      },
+      {
+        "file": "gitops/platform/loki/values/{environment}.yaml",
+        "pointer": "/loki/storage/bucketNames/ruler"
+      },
+      {
+        "file": "gitops/platform/loki/values/{environment}.yaml",
+        "pointer": "/loki/storage/bucketNames/admin"
+      }
+    ]
+  },
+  {
+    "root": "observability",
+    "field": "metrics_bucket",
+    "type": "bucket",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/metrics_bucket"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/monitoring/overlays/{environment}/objstore.yml",
+        "pointer": "/config/bucket"
+      }
+    ]
+  },
+  {
+    "root": "observability",
+    "field": "metrics_prefix",
+    "type": "prefix",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/metrics_prefix"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/monitoring/overlays/{environment}/objstore.yml",
+        "pointer": "/prefix"
+      }
+    ]
+  },
+  {
+    "root": "observability",
+    "field": "region",
+    "type": "region",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/region"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/monitoring/overlays/{environment}/objstore.yml",
+        "pointer": "/config/region"
+      },
+      {
+        "file": "gitops/platform/loki/values/{environment}.yaml",
+        "pointer": "/loki/storage/s3/region"
+      },
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}/values.yaml",
+        "pointer": "/storage/trace/s3/region"
+      },
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}-e2/values.yaml",
+        "pointer": "/storage/trace/s3/region"
+      },
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}-e3/values.yaml",
+        "pointer": "/storage/trace/s3/region"
+      }
+    ]
+  },
+  {
+    "root": "observability",
+    "field": "s3_endpoint",
+    "type": "endpoint",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/s3_endpoint"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/monitoring/overlays/{environment}/objstore.yml",
+        "pointer": "/config/endpoint"
+      },
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}/values.yaml",
+        "pointer": "/storage/trace/s3/endpoint"
+      },
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}-e2/values.yaml",
+        "pointer": "/storage/trace/s3/endpoint"
+      },
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}-e3/values.yaml",
+        "pointer": "/storage/trace/s3/endpoint"
+      }
+    ]
+  },
+  {
+    "root": "observability",
+    "field": "trace_epoch2_prefix",
+    "type": "prefix",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/trace_epoch2_prefix"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}-e2/values.yaml",
+        "pointer": "/storage/trace/s3/prefix"
+      }
+    ]
+  },
+  {
+    "root": "observability",
+    "field": "trace_epoch3_prefix",
+    "type": "prefix",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/trace_epoch3_prefix"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}-e3/values.yaml",
+        "pointer": "/storage/trace/s3/prefix"
+      }
+    ]
+  },
+  {
+    "root": "observability",
+    "field": "trace_prefix",
+    "type": "prefix",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/trace_prefix"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}/values.yaml",
+        "pointer": "/storage/trace/s3/prefix"
+      }
+    ]
+  },
+  {
+    "root": "observability",
+    "field": "traces_bucket",
+    "type": "bucket",
+    "source": {
+      "output": "platform_input_values",
+      "pointer": "/traces_bucket"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}/values.yaml",
+        "pointer": "/storage/trace/s3/bucket"
+      },
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}-e2/values.yaml",
+        "pointer": "/storage/trace/s3/bucket"
+      },
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}-e3/values.yaml",
+        "pointer": "/storage/trace/s3/bucket"
+      }
+    ]
+  },
+  {
+    "root": "operations",
+    "field": "backup_bucket",
+    "type": "bucket",
+    "source": {
+      "output": "operations_contract",
+      "pointer": "/velero_bucket_name"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/velero/values/{environment}.yaml",
+        "pointer": "/configuration/backupStorageLocation/0/bucket"
+      }
+    ]
+  },
+  {
+    "root": "operations",
+    "field": "cluster_name",
+    "type": "string",
+    "source": {
+      "output": "operations_contract",
+      "pointer": "/cluster_name"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/cluster-autoscaler/values/{environment}.yaml",
+        "pointer": "/autoDiscovery/clusterName"
+      }
+    ]
+  },
+  {
+    "root": "operations",
+    "field": "grafana_region",
+    "type": "region",
+    "source": {
+      "metadata": "region"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/grafana-secret/overlays/{environment}/secretstore-platform-secrets.yaml",
+        "pointer": "/spec/provider/aws/region"
+      }
+    ]
+  },
+  {
+    "root": "operations",
+    "field": "grafana_secret_name",
+    "type": "string",
+    "source": {
+      "output": "grafana_secret_name",
+      "pointer": ""
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/grafana-secret/overlays/{environment}/externalsecret-grafana-admin.yaml",
+        "pointer": "/spec/data/0/remoteRef/key"
+      },
+      {
+        "file": "gitops/platform/grafana-secret/overlays/{environment}/externalsecret-grafana-admin.yaml",
+        "pointer": "/spec/data/1/remoteRef/key"
+      }
+    ]
+  },
+  {
+    "root": "operations",
+    "field": "region",
+    "type": "region",
+    "source": {
+      "output": "operations_contract",
+      "pointer": "/region"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/cluster-autoscaler/values/{environment}.yaml",
+        "pointer": "/awsRegion"
+      },
+      {
+        "file": "gitops/platform/velero/values/{environment}.yaml",
+        "pointer": "/configuration/backupStorageLocation/0/config/region"
+      },
+      {
+        "file": "gitops/platform/velero/values/{environment}.yaml",
+        "pointer": "/configuration/volumeSnapshotLocation/0/config/region"
+      }
+    ]
+  },
+  {
+    "root": "queue-managed",
+    "field": "bootstrap_scram",
+    "type": "endpoint",
+    "source": {
+      "output": "queue_managed_contract",
+      "pointer": "/bootstrap_brokers_scram"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}-e2/values.yaml",
+        "pointer": "/ingest/kafka/address"
+      }
+    ]
+  },
+  {
+    "root": "queue-managed",
+    "field": "partitions",
+    "type": "integer",
+    "source": {
+      "output": "queue_managed_contract",
+      "pointer": "/partitions"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}-e2/values.yaml",
+        "pointer": "/ingest/kafka/auto_create_topic_default_partitions"
+      },
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}-e2/values.yaml",
+        "pointer": "/blockBuilder/replicas"
+      },
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}-e2/values.yaml",
+        "pointer": "/liveStore/replicas"
+      }
+    ]
+  },
+  {
+    "root": "queue-managed",
+    "field": "topic_name",
+    "type": "string",
+    "source": {
+      "output": "queue_managed_contract",
+      "pointer": "/topic_name"
+    },
+    "targets": [
+      {
+        "file": "gitops/platform/tempo/overlays/{environment}-e2/values.yaml",
+        "pointer": "/ingest/kafka/topic"
+      }
+    ]
+  }
+]

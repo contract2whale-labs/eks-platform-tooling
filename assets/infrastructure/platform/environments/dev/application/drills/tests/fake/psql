@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# drills/tests/fake/psql — pool-probe.test.sh 용 가짜 psql. 상태는 $FAKE_DIR/pg 의 파일(limit · sessions · max_connections · total)에 둡니다.
+# 관리 계정 postgres / master-fixture-password, 업무 계정 commerce_runtime / runtime-fixture-password (공개 시험 값).
+# 실패 주입: FAKE_PG_ADMIN_FAIL · FAKE_PG_ROLE_MISSING · FAKE_PG_LIMIT_TEXT · FAKE_PG_ALTER_FAIL(inject|restore|all) · FAKE_PG_READBACK_WRONG
+#            FAKE_PG_ROLE_LOGIN_FAIL · FAKE_PG_LOGIN_FAIL_AFTER_RESTORE · FAKE_PG_IGNORE_LIMIT · FAKE_PG_REFUSE_REASON
+set -u
+S="$FAKE_DIR/pg"
+sql=""
+while [ $# -gt 0 ]; do case "$1" in -c) sql="$2"; shift 2 ;; *) shift ;; esac; done
+printf '%s\t%s\n' "${PGUSER:-}" "$sql" >> "$FAKE_LOG"
+fatal() { printf 'psql: error: connection to server at "%s" (10.0.0.1), port 5432 failed: FATAL:  %s\n' "${PGHOST:-db}" "$1" >&2; exit 2; }
+if [ "${PGUSER:-}" = postgres ]; then
+  [ "${FAKE_PG_ADMIN_FAIL:-}" != 1 ] && [ "${PGPASSWORD:-}" = master-fixture-password ] || fatal 'password authentication failed for user "postgres"'
+  case "$sql" in
+    'SELECT 1') echo 1 ;;
+    "SELECT rolconnlimit FROM pg_roles WHERE rolname = 'commerce_runtime'")
+      [ "${FAKE_PG_ROLE_MISSING:-}" = 1 ] && exit 0
+      if [ -n "${FAKE_PG_LIMIT_TEXT:-}" ]; then echo "$FAKE_PG_LIMIT_TEXT"; else cat "$S/limit"; fi ;;
+    'SHOW max_connections') cat "$S/max_connections" ;;
+    "SELECT count(*) FROM pg_stat_activity WHERE usename = 'commerce_runtime'") cat "$S/sessions" ;;
+    'SELECT count(*) FROM pg_stat_activity') cat "$S/total" ;;
+    'ALTER ROLE "commerce_runtime" CONNECTION LIMIT '*)
+      n="${sql##* }"
+      case "${FAKE_PG_ALTER_FAIL:-}:$n" in
+        all:* | restore:-1) echo 'ERROR:  canceling statement due to lock timeout' >&2; exit 3 ;;
+        inject:-1) ;;
+        inject:*) echo 'ERROR:  canceling statement due to lock timeout' >&2; exit 3 ;;
+      esac
+      if [ "$n" != -1 ]; then touch "$S/altered"; fi
+      if [ "$n" != -1 ] && [ "${FAKE_PG_READBACK_WRONG:-}" = 1 ]; then echo $((n + 1)) > "$S/limit"; else echo "$n" > "$S/limit"; fi ;;
+    *) echo "fake psql: unexpected SQL: $sql" >&2; exit 3 ;;
+  esac
+  exit 0
+fi
+if [ "${PGUSER:-}" = commerce_runtime ]; then
+  [ "${FAKE_PG_ROLE_LOGIN_FAIL:-}" != 1 ] && [ "${PGPASSWORD:-}" = runtime-fixture-password ] || fatal 'password authentication failed for user "commerce_runtime"'
+  limit="$(cat "$S/limit")"
+  if [ "${FAKE_PG_LOGIN_FAIL_AFTER_RESTORE:-}" = 1 ] && [ "$limit" = -1 ] && [ -f "$S/altered" ]; then fatal 'the database system is shutting down'; fi
+  if [ "$limit" != -1 ] && [ "$(cat "$S/sessions")" -ge "$limit" ] && [ "${FAKE_PG_IGNORE_LIMIT:-}" != 1 ]; then
+    fatal "${FAKE_PG_REFUSE_REASON:-too many connections for role \"commerce_runtime\"}"
+  fi
+  echo 1; exit 0
+fi
+fatal "role \"${PGUSER:-}\" does not exist"

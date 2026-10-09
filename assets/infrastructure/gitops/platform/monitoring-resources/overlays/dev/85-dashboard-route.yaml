@@ -1,0 +1,24 @@
+# gitops/platform/monitoring-resources/overlays/dev/85-dashboard-route.yaml
+apiVersion: gateway.networking.k8s.io/v1 # 예: gateway.networking.k8s.io/v1
+kind: HTTPRoute                          # 예: HTTPRoute
+metadata:
+  name: dashboard                        # 예: dashboard
+  namespace: monitoring                  # 예: monitoring (Grafana Service 와 같은 네임스페이스 — cross-namespace backend 는 정책이 거부)
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io   # 예: gateway.networking.k8s.io
+      kind: Gateway                      # 예: Gateway
+      name: platform                     # 예: platform (서비스 진입 경로 gateway_contract.gateway_name)
+      namespace: platform-gateway        # 예: platform-gateway
+      sectionName: https                 # 예: https (listener 이름)
+  hostnames:
+    - grafana.dev.playdevops.click             # 예: grafana.dev.playdevops.click (input.env DASHBOARD_HOSTNAME; 네임스페이스 annotation 과 같은 값)
+  rules:
+    - matches:
+        - path: {type: PathPrefix, value: /} # 예: 모든 경로
+      backendRefs:
+        - group: ""                        # 예: "" (핵심 API 그룹의 Service)
+          kind: Service                    # 예: Service
+          name: platform-monitoring-grafana
+          port: 80                         # 예: 80
+          weight: 1                        # 예: 1

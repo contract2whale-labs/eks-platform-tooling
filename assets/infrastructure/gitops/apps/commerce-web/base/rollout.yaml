@@ -1,0 +1,102 @@
+# gitops/apps/commerce-web/base/rollout.yaml — 스토어프런트의 배포 리소스 (Deployment 대신 Argo Rollouts 의 Rollout)
+# Pod 틀은 제공된 앱 저장소의 Dockerfile · 런타임 설정이 정한 앱 계약과 같습니다 — 비루트 UID 10001 · 포트 3000 · readiness GET /robots.txt · liveness TCP 3000 · readOnlyRootFilesystem. 쓰기 경로는 .next/cache 와 /tmp 두 곳뿐이라 emptyDir 로 줍니다.
+# readiness 를 홈(/)이 아니라 /robots.txt 로 두는 이유: 홈은 Store API 를 부르므로 commerce-api 장애가 스토어프런트의 readiness 실패로 번져 두 서비스가 함께 트래픽에서 빠집니다.
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: commerce-web                            # 예: commerce-web (kubectl argo rollouts get rollout commerce-web)
+  labels:
+    app.kubernetes.io/name: commerce-web        # 예: commerce-web (Service selector 가 보는 label)
+  annotations:
+    reloader.stakater.com/auto: "true"          # 예: 참조하는 ConfigMap 이 바뀌면 롤링 재기동 (stakater/reloader)
+    argocd.argoproj.io/sync-wave: "1"           # 예: 1 (같은 Application 안의 ConfigMap · Service · HTTPRoute 뒤 순서. Application의 wave만으로 API Health를 보장하지 않으므로 승인 revision의 API sync·wait 뒤 Web sync)
+spec:
+  replicas: 2                                   # 예: 2 (app 노드 2대에 하나씩)
+  revisionHistoryLimit: 3                       # 예: 3 (되돌릴 수 있는 ReplicaSet 수)
+  selector:
+    matchLabels: {app.kubernetes.io/name: commerce-web} # 예: commerce-web
+  strategy:
+    canary:
+      stableService: commerce-web-stable        # 예: 안정 버전 Pod 만 고르는 Service (Rollouts 가 selector 에 pod-template-hash 를 붙임)
+      canaryService: commerce-web-canary        # 예: canary 버전 Pod 만 고르는 Service
+      trafficRouting:
+        plugins:
+          argoproj-labs/gatewayAPI:             # 예: Gateway API 플러그인 (gitops/platform/values/argo-rollouts.yaml 의 trafficRouterPlugins)
+            namespace: contract2whale-demo         # 예: HTTPRoute 가 있는 네임스페이스
+            httpRoutes:
+              - name: app-ui                    # 예: 스토어프런트 경로 HTTPRoute (canary 대상은 web 하나뿐 — api 는 Deployment)
+                useHeaderRoutes: false
+      maxSurge: 1                               # 예: 1 (교체 중 최대 3개)
+      maxUnavailable: 0                         # 예: 0 (준비된 Pod 만 줄임)
+      steps:
+        - setWeight: 10                         # 예: 10% (HTTPRoute weight — Pod 수와 무관한 정밀 비율)
+        - pause: {duration: 60s}                # 예: 60s (Envoy 지표가 쌓일 시간 — scrape 30s × 2)
+        - analysis:                             # 예: 판정 단계 (실패 = abort, 통과 = 다음 단계)
+            templates:
+              - templateName: commerce-web-5xx-rate # 예: Envoy 라우트의 5xx 비율
+              - templateName: commerce-web-latency  # 예: Envoy 라우트의 p95 지연
+        - setWeight: 50                         # 예: 50%
+        - pause: {duration: 60s}
+        - setWeight: 100                        # 예: 100% (판정 통과 뒤 전체 교체)
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: commerce-web    # 예: commerce-web
+    spec:
+      serviceAccountName: commerce-web          # 예: commerce-web (앱 네임스페이스와 수집 허용 SA; AWS 접근은 없고 이름만 소유)
+      automountServiceAccountToken: false       # 예: false (Kubernetes API 를 부르지 않음)
+      terminationGracePeriodSeconds: 30         # 예: 30초 (preStop 10초 + 인플라이트 요청 처리)
+      nodeSelector: {workload: app}             # 예: app 노드 그룹 (앱과 DB 작업이 쓸 노드 그룹 추가)
+      topologySpreadConstraints:
+        - maxSkew: 1                            # 예: AZ 사이 복제본 차이 최대 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: {app.kubernetes.io/name: commerce-web}
+      securityContext:
+        runAsNonRoot: true                      # 예: true (restricted PSA)
+        runAsUser: 10001                        # 예: 10001 (이미지의 비root 사용자; commerce-web Dockerfile 과 같아야 함)
+        runAsGroup: 10001                       # 예: 10001 (.next/cache 소유 그룹)
+        fsGroup: 10001                          # 예: 10001 (emptyDir 를 이 그룹 소유로 만듦)
+        seccompProfile: {type: RuntimeDefault}  # 예: RuntimeDefault
+      containers:
+        - name: commerce-web                    # 예: commerce-web (컨테이너 이름 — overlay images 의 대상)
+          image: commerce-web                   # 예: overlay 의 images[].name — 실제 참조는 <계정>.dkr.ecr.…/commerce-web@sha256:… 로 바뀜
+          ports:
+            - {name: http, containerPort: 3000, protocol: TCP} # 예: 3000 (Next.js standalone 서버)
+          envFrom:
+            - configMapRef: {name: commerce-web-config} # 예: overlay 의 configMapGenerator (환경별 값 · RELEASE_DIGEST)
+          # 지표 · trace 의 resource attribute 입니다. Pod 마다 service.instance.id 가 달라야 collection-gateway 의 prometheus exporter 가
+          # 두 Pod 의 누적 counter 를 한 계열로 겹치지 않습니다 (수집 게이트웨이). 나머지 속성은 overlay ConfigMap 의 OTEL_RESOURCE_ATTRIBUTES_BASE 가 줍니다.
+          # env 는 envFrom 보다 우선하고 $(VAR) 는 envFrom 이 넣은 이름까지 펼칩니다.
+          env:
+            - name: POD_NAME                    # 예: commerce-web-6d8f9c7b45-abcde (Downward API)
+              valueFrom:
+                fieldRef: {fieldPath: metadata.name}
+            - name: OTEL_RESOURCE_ATTRIBUTES    # 예: service.instance.id=<Pod 이름>,deployment.environment=dev,service.namespace=contract2whale-demo
+              value: "service.instance.id=$(POD_NAME),$(OTEL_RESOURCE_ATTRIBUTES_BASE)"
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 10"] # 예: Endpoint 제거 전파를 위한 10초 대기. 실제 종료 중 응답·진행 요청은 별도 확인
+          readinessProbe:
+            httpGet: {path: /robots.txt, port: http} # 예: /robots.txt (app/robots.ts 가 만드는 실제 라우트 — Store API 를 부르지 않음)
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: http}             # 예: TCP 3000 (Next.js 는 의존성 없는 헬스 경로가 없어 포트만 봄)
+            periodSeconds: 20
+          volumeMounts:
+            - {name: next-cache, mountPath: /app/.next/cache} # 예: 요청 캐시가 쓰이는 유일한 경로 (commerce-web Dockerfile 의 작업 경로 /app)
+            - {name: tmp, mountPath: /tmp}      # 예: Node 가 쓰는 임시 경로
+          resources:
+            requests: {cpu: 200m, memory: 512Mi} # 예: 복제본 1개 (앱과 DB 작업이 쓸 노드 그룹 추가 용량 표 — app 노드 m7i.large)
+            limits: {memory: 1Gi}               # 예: 메모리 상한
+          securityContext:
+            allowPrivilegeEscalation: false     # 예: false
+            readOnlyRootFilesystem: true        # 예: true (쓰기는 위 emptyDir 2곳만)
+            capabilities: {drop: [ALL]}         # 예: 모든 capability 제거
+      volumes:
+        - name: next-cache
+          emptyDir: {sizeLimit: 512Mi}          # 예: 512Mi (Pod 이 사라지면 캐시도 사라짐 — 공유하지 않는 캐시)
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}           # 예: 64Mi

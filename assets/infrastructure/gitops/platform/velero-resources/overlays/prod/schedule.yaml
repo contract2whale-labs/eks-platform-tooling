@@ -1,0 +1,16 @@
+# gitops/platform/velero-resources/overlays/prod/schedule.yaml
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: platform-daily                 # 예: platform-daily (일정 이름)
+  namespace: velero                    # 예: velero (일정이 놓이는 네임스페이스)
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm
+spec:
+  paused: true # 복원 SHA-256 대조 후 별도 승인 PR에서 false
+  schedule: "0 2 * * *"                # 예: 매일 서버 시간대(UTC) 기준 02:00 (일정 주기; 분 시 일 월 요일)
+  template:
+    ttl: 168h                          # 예: 168h (이 일정이 만든 백업의 보관 기간)
+    includedNamespaces: [monitoring, external-secrets]    # 예: 두 네임스페이스 (백업 대상; 검사용 네임스페이스은 대상이 아님)
+    snapshotVolumes: true              # 예: true (볼륨 스냅샷도 함께 만듭니다)
+    # Helm 설치 기록과 Secret 도 저장되므로 백업 저장소는 민감한 정보 저장소입니다 (버킷 정책 · 공개 차단 · 암호화가 그 이유).

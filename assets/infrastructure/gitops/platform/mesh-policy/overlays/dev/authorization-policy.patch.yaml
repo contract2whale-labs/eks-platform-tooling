@@ -1,0 +1,24 @@
+# 네 가지 조건을 한 규칙 안에 함께 적습니다. 같은 규칙 안의 조건은 모두 만족해야 허용됩니다 (AND).
+apiVersion: security.istio.io/v1 # 예: security.istio.io/v1
+kind: AuthorizationPolicy        # 예: AuthorizationPolicy
+metadata:
+  name: allow-mesh-client-to-server # 예: allow-mesh-client-to-server (허용 정책 이름)
+  namespace: team-mesh-check        # 예: team-mesh-check
+spec:
+  selector:
+    matchLabels:
+      app: mesh-server           # 예: app: mesh-server (받는 쪽 Pod 에만 적용)
+  action: ALLOW                  # 예: ALLOW (조건에 맞는 연결만 허용)
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/team-mesh-check/sa/mesh-client # 예: 출발 신분 (spiffe:// 접두사 없이; 검증 4 의 Pod 문자열과 글자까지 같아야 함)
+            namespaces:
+              - team-mesh-check                                 # 예: 출발 네임스페이스
+            ipBlocks:
+              - 172.20.0.0/16                                   # 예: 172.20.0.0/16 (관련 구성 VPC CIDR; Pod 주소 대역)
+      to:
+        - operation:
+            ports:
+              - "8080"                                          # 예: "8080" (문자열; Service · Pod 의 포트)

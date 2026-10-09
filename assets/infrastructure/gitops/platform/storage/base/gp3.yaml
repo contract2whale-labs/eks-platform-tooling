@@ -1,0 +1,13 @@
+# gitops/platform/storage/base/gp3.yaml
+# 노드 용량 제어: 앞 구성(노드와 Add-on aws-ebs-csi-driver Add-on)의 EBS CSI controller 가 PVC 를 실제 encrypted gp3 EBS 로 만듭니다. 검사용 볼륨(백업과 복구 시험)과 관측 파이프라인 관측 스택이 이 이름을 씁니다.
+apiVersion: storage.k8s.io/v1           # 예: storage.k8s.io/v1 (저장 API 그룹의 버전)
+kind: StorageClass                      # 예: StorageClass (만들 객체 종류)
+metadata:
+  name: platform-gp3                    # 예: platform-gp3 (볼륨 요청이 가리킬 이름)
+provisioner: ebs.csi.aws.com            # 예: ebs.csi.aws.com (볼륨을 만들 드라이버; Pod Identity 는 노드 IAM 과 권한 경계 의 ebs_csi_role_arn)
+parameters:
+  type: gp3                             # 예: gp3 (볼륨 종류)
+  encrypted: "true"                     # 예: "true" (저장 시 암호화, 문자열로 적습니다)
+volumeBindingMode: WaitForFirstConsumer # 예: Pod 의 배치 노드가 선택된 뒤 그 AZ 에 볼륨을 만듦 (AZ 3곳에 걸친 노드 그룹에서 필수)
+allowVolumeExpansion: true              # 예: true (나중에 용량을 늘릴 수 있음)
+reclaimPolicy: Retain                   # 예: Retain (요청을 지워도 볼륨을 남김; vol-clean은 현재 delete-reviewed 승인과 개별 승인 volume ID를 삭제 직전 재확인)

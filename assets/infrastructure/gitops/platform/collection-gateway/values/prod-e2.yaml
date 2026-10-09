@@ -1,0 +1,16 @@
+# gitops/platform/collection-gateway/values/prod-e2.yaml
+# 비우기와 전환: 유입 재개 — 트레이스를 epoch 2(관리형 큐) release 의 distributor 로 보냅니다. 관측 파이프라인 values/collector-gateway-traces.yaml 과 대상 주소만 다릅니다.
+# 사용: helm upgrade collection-gateway <chart> -n observability --reset-values -f ../observability/values/collector-gateway.yaml -f values/collector-gateway-e2.yaml
+config:
+  exporters:
+    otlp/traces:
+      endpoint: platform-tempo-e2-distributor.monitoring.svc.cluster.local:4317 # 예: release platform-tempo-e2 의 distributor Service (OTLP gRPC)
+      tls: {insecure: true} # 예: true (클러스터 안 평문; observability · monitoring 은 메시 밖)
+      sending_queue: {enabled: true, num_consumers: 4, queue_size: 500}                                 # 예: 관측 파이프라인 와 같은 큐
+      retry_on_failure: {enabled: true, initial_interval: 1s, max_interval: 30s, max_elapsed_time: 5m} # 예: 5분 뒤 버림
+  service:
+    pipelines:
+      traces:
+        receivers: [otlp]                             # 예: 로그와 같은 수신부
+        processors: [memory_limiter, attributes/drop-sensitive-headers, resource, batch] # 예: 메모리 제한 뒤 민감 헤더 삭제, resource 보강, batch
+        exporters: [otlp/traces]                      # 예: epoch 2 distributor 로만

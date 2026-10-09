@@ -1,0 +1,49 @@
+# gitops/platform/cert-manager/values/prod.yaml
+# cert-manager Application이 chart의 CRD를 단독 관리합니다. Namespace는 namespaces Application 소유입니다.
+crds:
+  enabled: true # 예: true (chart source에 CRD를 포함)
+  keep: true    # 예: true (CRD 보존용 upstream 표시; Argo prune/delete는 별도 통제)
+
+# leader election 대상 controller 는 2개, webhook 도 장애 분산을 위해 2개입니다.
+replicaCount: 2 # 예: 2 (controller Pod 요청 개수)
+podDisruptionBudget:
+  enabled: true   # 예: true (자발적 중단 제어를 켬)
+  minAvailable: 1 # 예: 1 (자발적 중단에서 최소 1개를 남김)
+
+serviceAccount:
+  create: true       # 예: true (chart 가 ServiceAccount 를 만듦)
+  name: cert-manager # 예: cert-manager (Pod Identity 연결 대상과 같은 이름; modules/core 의 service_account)
+  # Pod Identity 는 annotation 이 아니라 EKS association 을 사용합니다.
+  annotations: {} # 예: {} (IRSA 용 Role annotation 을 넣지 않음)
+
+resources:
+  requests: {cpu: 100m, memory: 128Mi} # 예: cpu 100m, memory 128Mi (스케줄링 기준 용량)
+  limits: {memory: 256Mi}              # 예: memory 256Mi (메모리 상한)
+
+# Gateway annotation 으로 Certificate 를 자동 생성하지 않고 뒤따르는 진입 구성(관련 구성)에서 명시적으로 만듭니다.
+# 이 선택 때문에 Gateway API CRD 가 아직 없어도 cert-manager 를 먼저 설치할 수 있습니다.
+config:
+  apiVersion: controller.config.cert-manager.io/v1alpha1 # 예: controller 설정 문서의 API 버전
+  kind: ControllerConfiguration                          # 예: ControllerConfiguration (설정 문서 종류)
+  gatewayAPI:
+    enabled: false # 예: false (진입 자원 연동을 끔)
+
+webhook:
+  replicaCount: 2                                       # 예: 2 (webhook Pod 요청 개수)
+  podDisruptionBudget: {enabled: true, minAvailable: 1} # 예: 자발적 중단에서 최소 1개 유지
+  resources:
+    requests: {cpu: 100m, memory: 128Mi} # 예: cpu 100m, memory 128Mi
+    limits: {memory: 256Mi}              # 예: memory 256Mi
+
+cainjector:
+  replicaCount: 2                                       # 예: 2 (cainjector Pod 요청 개수)
+  podDisruptionBudget: {enabled: true, minAvailable: 1} # 예: 자발적 중단에서 최소 1개 유지
+  resources:
+    requests: {cpu: 100m, memory: 128Mi} # 예: cpu 100m, memory 128Mi
+    limits: {memory: 256Mi}              # 예: memory 256Mi
+
+# 모니터링 구성(관측 노드 구성)이 수집용 CRD 와 ServiceMonitor 를 소유합니다. metrics endpoint 만 먼저 엽니다.
+prometheus:
+  enabled: true                    # 예: true (metrics endpoint 를 노출)
+  servicemonitor: {enabled: false} # 예: false (수집 객체를 여기서 만들지 않음)
+  podmonitor: {enabled: false}     # 예: false (수집 객체를 여기서 만들지 않음)

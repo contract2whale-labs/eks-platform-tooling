@@ -1,0 +1,64 @@
+alertmanager:
+  enabled: true
+  serviceAccount:
+    create: true
+    name: platform-alertmanager
+    annotations: {}
+  tplConfig: false
+  stringConfig: ''
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: local-only
+      group_by:
+      - environment
+      - cluster
+      - namespace
+      - alertname
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      routes:
+      - receiver: local-only
+        matchers:
+        - alertname=~"Watchdog|InfoInhibitor"
+      - receiver: sns-email
+        matchers:
+        - severity=~"warning|critical"
+    receivers:
+    - name: local-only
+    - name: sns-email
+      sns_configs:
+      - topic_arn: arn:aws:sns:ap-northeast-2:111111111111:platform-dev-alerts
+        sigv4:
+          region: ap-northeast-2
+        send_resolved: true
+        subject: '[dev] {{ .Status }} {{ printf "%.60s" .CommonLabels.alertname }}'
+        message: 'environment=dev cluster=contract2whale-dev-eks
+
+          {{ range .Alerts }}status={{ .Status }} alert={{ .Labels.alertname }} severity={{
+          .Labels.severity }}
+
+          namespace={{ .Labels.namespace }} pod={{ .Labels.pod }} container={{ .Labels.container
+          }} instance={{ .Labels.instance }}
+
+          summary={{ .Annotations.summary }}
+
+          description={{ .Annotations.description }}
+
+          started={{ .StartsAt }} ended={{ .EndsAt }}
+
+          {{ end }}'
+  alertmanagerSpec:
+    useExistingSecret: false
+    image:
+      registry: quay.io
+      repository: prometheus/alertmanager
+      tag: v0.34.0
+      sha: ''
+prometheus:
+  prometheusSpec:
+    externalLabels:
+      environment: dev
+      cluster: contract2whale-dev-eks

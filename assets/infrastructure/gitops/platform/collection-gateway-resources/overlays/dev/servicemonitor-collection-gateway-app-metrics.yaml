@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: collection-gateway-app-metrics
+  namespace: monitoring
+  labels:
+    release: platform-monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+    - observability
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: collection-gateway
+  endpoints:
+  - port: app-metrics
+    path: /metrics
+    interval: 30s
+    relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: application-otlp

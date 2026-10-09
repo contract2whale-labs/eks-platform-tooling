@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-storefront-ingress
+  namespace: contract2whale-demo
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: commerce-api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: commerce-web
+    ports:
+    - protocol: TCP
+      port: 9000
+    - protocol: TCP
+      port: 15008

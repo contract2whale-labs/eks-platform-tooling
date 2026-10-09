@@ -1,0 +1,16 @@
+# gitops/apps/commerce-web/base/rollout-transform.yaml — Kustomize 가 Rollout(CRD) 안의 참조를 알도록 알려 주는 설정
+# 환경 계약과 배포 요청: nameReference 2종. Rollout 의 envFrom 이 가리키는 ConfigMap · Secret 이름을 configMapGenerator 의 해시 붙은 이름으로 바꿉니다. 없으면 Rollout 이 commerce-web-config(해시 없음)를 가리켜 Pod 가 ConfigMap 을 찾지 못합니다.
+# Deployment 는 Kustomize 기본값에 이미 들어 있어 이런 파일이 필요 없습니다 — commerce-api 쪽에 같은 파일이 없는 이유입니다.
+nameReference:
+  - kind: ConfigMap
+    fieldSpecs:
+      - path: spec/template/spec/containers/envFrom/configMapRef/name # 예: Rollout 의 envFrom (commerce-web-config-<hash>)
+        kind: Rollout
+      - path: spec/template/spec/containers/env/valueFrom/configMapKeyRef/name # 예: 개별 env 참조 (지금은 없음)
+        kind: Rollout
+  - kind: Secret
+    fieldSpecs:
+      - path: spec/template/spec/containers/envFrom/secretRef/name # 예: Secret 참조 (스토어프런트는 지금 없음 — 비밀 값이 생기면 여기로 이어짐)
+        kind: Rollout
+      - path: spec/template/spec/containers/env/valueFrom/secretKeyRef/name
+        kind: Rollout

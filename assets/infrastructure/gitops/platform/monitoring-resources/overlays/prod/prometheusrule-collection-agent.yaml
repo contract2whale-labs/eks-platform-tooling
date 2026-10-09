@@ -1,0 +1,35 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: collection-agent
+  namespace: monitoring
+  labels:
+    release: platform-monitoring
+spec:
+  groups:
+  - name: collection-agent
+    rules:
+    - alert: CollectionAgentMissingOnNodes
+      expr: kube_daemonset_status_desired_number_scheduled{namespace="observability",daemonset="collection-agent-opentelemetry-collector-agent"}
+        != scalar(count(kube_node_info))
+      for: 15m
+      labels:
+        severity: critical
+      annotations:
+        summary: Collection agent is not scheduled on every node
+    - alert: CollectionAgentNotReady
+      expr: kube_daemonset_status_number_ready{namespace="observability",daemonset="collection-agent-opentelemetry-collector-agent"}
+        < kube_daemonset_status_desired_number_scheduled{namespace="observability",daemonset="collection-agent-opentelemetry-collector-agent"}
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: Some collection agent pods are not ready
+    - alert: CollectionAgentDroppingLogs
+      expr: sum(rate(otelcol_exporter_enqueue_failed_log_records{job="collection-agent"}[10m]))
+        > 0
+      for: 10m
+      labels:
+        severity: critical
+      annotations:
+        summary: Collection agent is failing to enqueue log records for export

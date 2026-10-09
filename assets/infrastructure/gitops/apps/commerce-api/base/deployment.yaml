@@ -1,0 +1,84 @@
+# gitops/apps/commerce-api/base/deployment.yaml — 커머스 백엔드의 배포 리소스 (Rollout 이 아니라 Deployment)
+# Pod 틀은 제공된 앱 저장소의 Dockerfile · 런타임 설정이 정한 앱 계약과 같습니다 — 비루트 UID 10001 · 포트 9000 · GET /health · readOnlyRootFilesystem. Store API · Admin API · 관리자 화면이 한 프로세스라 컨테이너도 포트도 하나입니다.
+# /health 는 DB · Redis 를 보지 않는 liveness 수준입니다. 그래서 readiness 에도 같은 경로를 쓰되, "의존성 이상은 probe 가 아니라 지표 · 경보가 잡는다" 를 설계 결정으로 둡니다 (장애 대응 장애 훈련의 전제).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: commerce-api                            # 예: commerce-api (kubectl -n contract2whale-demo get deploy commerce-api)
+  labels:
+    app.kubernetes.io/name: commerce-api        # 예: commerce-api (Service · NetworkPolicy selector 가 보는 label)
+  annotations:
+    reloader.stakater.com/auto: "true"          # 예: 참조하는 ConfigMap · Secret 이 바뀌면 롤링 재기동 (비밀 회전 대응)
+    argocd.argoproj.io/sync-wave: "1"           # 예: 1 (ConfigMap · Secret · Service 가 만들어진 뒤)
+spec:
+  replicas: 2                                   # 예: 2 (Redis 모듈 4개 덕분에 복제본이 2 이상이어도 이벤트 · 워크플로 상태가 어긋나지 않음)
+  revisionHistoryLimit: 3                       # 예: 3
+  selector:
+    matchLabels: {app.kubernetes.io/name: commerce-api} # 예: commerce-api
+  strategy:
+    type: RollingUpdate                         # 예: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0} # 예: 새 Pod 이 준비된 뒤 옛 Pod 을 내림
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: commerce-api    # 예: commerce-api
+    spec:
+      serviceAccountName: commerce-api          # 예: commerce-api (앱 네임스페이스와 수집 허용 SA; Pod Identity → runtime Role 로 S3 미디어 업로드)
+      automountServiceAccountToken: false       # 예: false (Kubernetes API 를 부르지 않음)
+      terminationGracePeriodSeconds: 30         # 예: 30초 (preStop 10초 + 인플라이트 요청 처리)
+      nodeSelector: {workload: app}             # 예: app 노드 그룹 (앱과 DB 작업이 쓸 노드 그룹 추가)
+      topologySpreadConstraints:
+        - maxSkew: 1                            # 예: AZ 사이 복제본 차이 최대 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: {app.kubernetes.io/name: commerce-api}
+      securityContext:
+        runAsNonRoot: true                      # 예: true (restricted PSA)
+        runAsUser: 10001                        # 예: 10001 (이미지의 비root 사용자; commerce-api Dockerfile 과 같아야 함)
+        runAsGroup: 10001                       # 예: 10001
+        fsGroup: 10001                          # 예: 10001 (emptyDir 를 이 그룹 소유로 만듦)
+        seccompProfile: {type: RuntimeDefault}  # 예: RuntimeDefault
+      containers:
+        - name: commerce-api                    # 예: commerce-api (컨테이너 이름 — overlay images 의 대상)
+          image: commerce-api                   # 예: overlay 의 images[].name — 실제 참조는 <계정>.dkr.ecr.…/commerce-api@sha256:… 로 바뀜
+          ports:
+            - {name: http, containerPort: 9000, protocol: TCP} # 예: 9000 (Store API · Admin API · 관리자 화면이 같은 포트)
+          envFrom:
+            - configMapRef: {name: commerce-api-config} # 예: overlay 의 configMapGenerator (공개 값 · RELEASE_DIGEST)
+            - secretRef: {name: commerce-api-runtime}   # 예: ExternalSecret 이 만든 Secret (DATABASE_URL · REDIS_URL · JWT_SECRET · COOKIE_SECRET)
+          # 지표 · trace 의 resource attribute 입니다. Pod 마다 service.instance.id 가 달라야 collection-gateway 의 prometheus exporter 가
+          # 두 Pod 의 누적 counter 를 한 계열로 겹치지 않습니다 (수집 게이트웨이). 나머지 속성은 overlay ConfigMap 의 OTEL_RESOURCE_ATTRIBUTES_BASE 가 줍니다.
+          # env 는 envFrom 보다 우선하고 $(VAR) 는 envFrom 이 넣은 이름까지 펼칩니다.
+          env:
+            - name: POD_NAME                    # 예: commerce-api-6d8f9c7b45-abcde (Downward API)
+              valueFrom:
+                fieldRef: {fieldPath: metadata.name}
+            - name: OTEL_RESOURCE_ATTRIBUTES    # 예: service.instance.id=<Pod 이름>,deployment.environment=dev,service.namespace=contract2whale-demo
+              value: "service.instance.id=$(POD_NAME),$(OTEL_RESOURCE_ATTRIBUTES_BASE)"
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 10"] # 예: Endpoint 제거가 kube-proxy · Envoy 에 전파될 때까지 10초 대기 (502 방지)
+          readinessProbe:
+            httpGet: {path: /health, port: http} # 예: /health (200 · 본문 OK)
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 20
+          startupProbe:
+            httpGet: {path: /health, port: http} # 예: 기동이 느려(모듈 적재 · 관리자 UI) liveness 가 먼저 죽이는 것을 막음
+            periodSeconds: 5
+            failureThreshold: 36                 # 예: 36 × 5초 = 최대 3분
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}      # 예: Node 가 쓰는 임시 경로 (readOnlyRootFilesystem 에서 유일한 쓰기 경로)
+          resources:
+            requests: {cpu: 400m, memory: 1Gi}  # 예: 복제본 1개 (앱과 DB 작업이 쓸 노드 그룹 추가 용량 표 — app 노드 m7i.large)
+            limits: {memory: 2Gi}               # 예: 메모리 상한
+          securityContext:
+            allowPrivilegeEscalation: false     # 예: false
+            readOnlyRootFilesystem: true        # 예: true
+            capabilities: {drop: [ALL]}         # 예: 모든 capability 제거
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 128Mi}          # 예: 128Mi

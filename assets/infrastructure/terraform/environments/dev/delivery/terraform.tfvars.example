@@ -1,0 +1,13 @@
+# terraform.tfvars.example — dev delivery 루트 모듈
+# 루트 모듈과 적용: terraform.tfvars 로 복사한 뒤 expected_account_id · state_bucket_name 을 work/lab.env 의 DEV_ACCOUNT_ID · DEV_STATE_BUCKET 으로 바꿉니다. terraform.tfvars 는 커밋하지 않습니다.
+# 클러스터 계약과 GitHub OIDC provider ARN 은 입력하지 않습니다 (remote-state.tf 가 eks · account-baseline State 에서 읽음 — P1). 자기 fork 로 실습하면 세 저장소 이름(앱 2 · 인프라 1)을 바꿉니다.
+
+expected_account_id = "111111111111"                     # 예: 12자리 AWS 계정 번호 (DEV_ACCOUNT_ID)
+region              = "ap-northeast-2"                   # 예: "ap-northeast-2" (서울 리전)
+environment         = "dev"                              # 예: "dev" (이 디렉터리는 dev 만 허용)
+state_bucket_name   = "company-dev-tfstate-111111111111" # 예: backend.hcl 의 bucket 과 같은 Dev State 버킷 (DEV_STATE_BUCKET)
+
+# GitHub 입력은 gh api로 실제 ID를 조회한 github.auto.tfvars.json에서 전달합니다.
+# GITHUB_ORG 예: contract2whale-labs. 배포 플랫폼의 저장소 입력의 조회 → 확인 → 저장 단계를 따릅니다.
+# permissions_boundary_arn = "arn:aws:iam::111111111111:policy/platform-boundary" # 예: 조직 규칙으로 boundary 를 요구할 때만
+# previous_signing_key_id  = "1234abcd-12ab-34cd-86ef-1234567890ab"      # 예: 키 회전 중에만 이전 키 ID (증적과 복구 런북; 평상시 주석)

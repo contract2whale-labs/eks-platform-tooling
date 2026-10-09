@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: delivery-root-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm
+spec:
+  project: platform
+  source:
+    repoURL: 
+      git@github.com:contract2whale-labs/cloud-platform-infrastructure.git
+    targetRevision: main
+    path: gitops/clusters/prod/apps
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    syncOptions:
+    - ServerSideApply=true
+    - FailOnSharedResource=true

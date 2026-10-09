@@ -1,0 +1,139 @@
+# gitops/platform/monitoring/values/prod.yaml
+# 지표 수집과 외부 label: kube-prometheus-stack 88.6.2 의 values 입니다. 이 release(platform-monitoring)가 Prometheus Operator · CRD · Prometheus 2대 · Grafana · Alertmanager · node-exporter · kube-state-metrics 를 소유합니다.
+# 원본에서 더한 것: ServiceAccount 이름 · Thanos gRPC Service · 복제본 2 · 외부 label · 장기 저장 연결 · 관측 노드 배치와 견디는 설정. 바꾼 것: 복제본 1 → 2.
+fullnameOverride: platform-monitoring # 예: platform-monitoring (이 release 가 만드는 객체 이름의 앞부분)
+
+prometheusOperator:
+  admissionWebhooks:
+    patch:
+      resources:
+        requests: {cpu: 20m, memory: 64Mi} # 예: 웹훅 인증서 patch Job 의 요청량
+  nodeSelector: {workload: observability}  # 예: workload=observability (운영자도 관측 노드에)
+  tolerations:
+  - {key: workload, operator: Equal, value: observability, effect: NoSchedule}   # 예: 관측 노드의 taint 를 견딤
+
+# EKS 의 별도 컨트롤 플레인 API 수집은 구성하지 않으며 chart 기본 직접 조회 대상을 끕니다 (대상이 없는 target 이 down 으로 남지 않게).
+kubeEtcd: {enabled: false}              # 예: false (상태 저장소 주소가 노출되지 않음)
+kubeControllerManager: {enabled: false} # 예: false (chart 기본 controller 직접 수집을 쓰지 않음)
+kubeScheduler: {enabled: false}         # 예: false (chart 기본 scheduler 직접 수집을 쓰지 않음)
+kubeProxy: {enabled: false}             # 예: false (노드 대리자 대상을 만들지 않음)
+defaultRules:
+  rules:
+    etcd: false                   # 예: false (대상이 없는 규칙을 켜지 않음)
+    kubeControllerManager: false  # 예: false
+    kubeSchedulerAlerting: false  # 예: false
+    kubeSchedulerRecording: false # 예: false
+    kubeProxy: false              # 예: false
+
+grafana:
+  enabled: true
+  # 시크릿 동기화 의 시크릿 동기화(External Secrets)가 먼저 이 Secret 을 만들어야 합니다. 비밀번호를 값 파일에 쓰지 않습니다.
+  admin:
+    existingSecret: grafana-admin # 예: grafana-admin (운영 도구 가 monitoring 에 동기화한 Secret 이름)
+    userKey: admin-user           # 예: admin-user (Secret 안의 키 이름)
+    passwordKey: admin-password   # 예: admin-password (Secret 안의 키 이름)
+  service: {type: ClusterIP}
+  ingress: {enabled: false}  # 예: false (Ingress 를 쓰지 않음 — 클러스터 보안 기반 정책이 legacy Ingress 를 거부)
+  persistence:
+    enabled: true                  # 예: true (대시보드 설정을 볼륨에 남김)
+    storageClassName: platform-gp3 # 예: platform-gp3 (노드 용량 제어 가 만든 볼륨 유형)
+    size: 10Gi                     # 예: 10Gi
+  resources:
+    requests: {cpu: 100m, memory: 256Mi} # 예: 요청량
+    limits: {memory: 512Mi}              # 예: 메모리 상한
+  grafana.ini:
+    auth.anonymous: {enabled: false}                                # 예: false (익명 접근을 막음)
+    users: {allow_sign_up: false}                                   # 예: false (가입을 막음)
+    analytics: {reporting_enabled: false, check_for_updates: false} # 예: 둘 다 false (밖으로 나가는 호출을 막음)
+  nodeSelector: {workload: observability} # 예: workload=observability (관측 노드에만 배치)
+  tolerations:
+  - {key: workload, operator: Equal, value: observability, effect: NoSchedule}   # 예: 관측 노드의 taint 를 견딤
+
+alertmanager:
+  config:
+    route:
+      group_by: [namespace, alertname] # 예: 네임스페이스와 경보 이름으로 그룹 묶기
+      receiver: local-only             # 예: local-only (밖으로 보내지 않는 수신처)
+      group_wait: 30s                  # 예: 30s
+      group_interval: 5m               # 예: 5m
+      repeat_interval: 4h              # 예: 4h
+    receivers:
+    - name: local-only   # 예: local-only (설정만 있고 보내는 곳이 없음)
+  alertmanagerSpec:
+    replicas: 1 # 예: 1 (화면 확인용이므로 한 대)
+    resources:
+      requests: {cpu: 50m, memory: 128Mi} # 예: 요청량
+      limits: {memory: 256Mi}             # 예: 메모리 상한
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: platform-gp3 # 예: platform-gp3
+          accessModes: [ReadWriteOnce]   # 예: 한 노드에서만 붙는 볼륨
+          resources:
+            requests: {storage: 5Gi} # 예: 5Gi
+    nodeSelector: {workload: observability} # 예: 관측 노드에만 배치
+    tolerations:
+    - {key: workload, operator: Equal, value: observability, effect: NoSchedule}   # 예: 관측 노드의 taint 를 견딤
+
+prometheus:
+  serviceAccount:
+    create: true                         # 예: true (이 release 가 ServiceAccount 를 만듦)
+    name: platform-monitoring-prometheus
+  thanosService:
+    enabled: true # 예: true (Service platform-monitoring-thanos-discovery, port grpc · http)
+  thanosServiceMonitor:
+    enabled: true
+  prometheusSpec:
+    replicas: 2                                              # 예: 2 (원본 1 에서 올림. 한 대가 재시작해도 구간이 이어짐)
+    podAntiAffinity: hard                                    # 예: hard (같은 Prometheus 복제본을 다른 AZ 에)
+    podAntiAffinityTopologyKey: topology.kubernetes.io/zone # 예: 영역 키 (관측 노드가 2 영역 미만이면 Pending)
+    retention: 7d
+    retentionSize: 15GB                                      # 예: 15GB (로컬 볼륨 사용량 상한)
+    resources:
+      requests: {cpu: 500m, memory: 1Gi} # 예: 요청량
+      limits: {memory: 3Gi}              # 예: 메모리 상한
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: platform-gp3 # 예: platform-gp3
+          accessModes: [ReadWriteOnce]   # 예: 한 노드에서만 붙는 볼륨
+          resources:
+            requests: {storage: 20Gi} # 예: 20Gi (복제본마다 볼륨 하나)
+    # 다른 네임스페이스의 모든 수집 선언을 무조건 믿지 않습니다. release=platform-monitoring 표시가 있는 선언 · 규칙만 봅니다.
+    serviceMonitorSelectorNilUsesHelmValues: false # 예: false (기본 선택 규칙을 쓰지 않음)
+    serviceMonitorSelector:
+      matchLabels: {release: platform-monitoring} # 예: 이 표시가 있는 선언만 봄 (운영 도구 chart 들의 selector 값과 같음)
+    ruleSelectorNilUsesHelmValues: false # 예: false
+    ruleSelector:
+      matchLabels: {release: platform-monitoring} # 예: 이 표시가 있는 규칙만 봄
+    # 외부 label 입니다. 두 복제본의 블록을 저장소에서 한 계열로 합치는 근거이며, 계약의 cluster · region 과 같아야 합니다.
+    externalLabels:
+      cluster: contract2whale-prod-eks         # 예: contract2whale-prod-eks (계약의 cluster)
+      environment: prod # 예: prod (계약의 환경 이름)
+      region: ap-northeast-2           # 예: ap-northeast-2 (계약의 region)
+    replicaExternalLabelName: prometheus_replica
+    prometheusExternalLabelName: prometheus      # 예: prometheus (Prometheus 를 구분하는 label)
+    thanos:
+      image: quay.io/thanos/thanos:v0.41.0 # 예: v0.41.0 (versions.env 의 THANOS_VERSION 과 같은 값)
+      objectStorageConfig:
+        existingSecret:
+          name: thanos-objstore
+          key: objstore.yml     # 예: objstore.yml (Secret 안의 키 이름)
+    nodeSelector: {workload: observability} # 예: 관측 노드에만 배치
+    tolerations:
+    - {key: workload, operator: Equal, value: observability, effect: NoSchedule}   # 예: 관측 노드의 taint 를 견딤
+
+    podMetadata:
+      annotations:
+        platform.example/objstore-config-sha256: 
+          532f4f6d343b6de2515404b08216d173038c92ea64f550843d3cd0b40996a868
+prometheus-node-exporter:
+  tolerations:
+  - {key: workload, operator: Equal, value: observability, effect: NoSchedule}   # 예: 관측 노드의 taint 를 견딤
+  - {key: workload, operator: Equal, value: kafka, effect: NoSchedule}
+
+# 클러스터 객체 상태 수집은 한 대이므로 관측 노드에 둡니다.
+kube-state-metrics:
+  nodeSelector: {workload: observability} # 예: 관측 노드에만 배치
+  tolerations:
+  - {key: workload, operator: Equal, value: observability, effect: NoSchedule}   # 예: 관측 노드의 taint 를 견딤

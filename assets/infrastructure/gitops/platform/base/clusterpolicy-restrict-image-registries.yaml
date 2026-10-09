@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-image-registries
+  annotations:
+    policies.kyverno.io/title: Allow images only from this account's ECR
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  - name: ecr-only
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaceSelector:
+            matchLabels:
+              platform-role: tenant
+    validate:
+      message: Tenant images must come from this account's ECR registry.
+      pattern:
+        spec:
+          =(initContainers):
+          - image: REPLACED_BY_KUSTOMIZE
+          containers:
+          - image: REPLACED_BY_KUSTOMIZE
+          =(ephemeralContainers):
+          - image: REPLACED_BY_KUSTOMIZE

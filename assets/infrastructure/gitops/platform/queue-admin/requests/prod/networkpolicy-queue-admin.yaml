@@ -1,0 +1,49 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: queue-admin
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm
+  labels:
+    app.kubernetes.io/part-of: queue-managed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: queue-admin
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress: []
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  - to:
+    - ipBlock:
+        cidr: 10.70.32.0/24
+    - ipBlock:
+        cidr: 10.70.33.0/24
+    - ipBlock:
+        cidr: 10.70.34.0/24
+    ports:
+    - protocol: TCP
+      port: 9096
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: messaging
+    ports:
+    - protocol: TCP
+      port: 9092
+    - protocol: TCP
+      port: 9093

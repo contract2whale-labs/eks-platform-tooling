@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-envoy-gateway-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm
+spec:
+  project: platform
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform-gateway
+  syncPolicy:
+    syncOptions:
+    - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
+  sources:
+  - repoURL: docker.io/envoyproxy
+    chart: gateway-helm
+    targetRevision: v1.9.1
+    helm:
+      releaseName: envoy-gateway
+      valueFiles:
+      - $values/gitops/platform/envoy-gateway/values/prod.yaml
+      skipCrds: true
+  - repoURL: git@github.com:contract2whale-labs/cloud-platform-infrastructure.git
+    targetRevision: main
+    ref: values

@@ -1,0 +1,9 @@
+"configs":
+  "cm":
+    "oidc.config": |
+      name: Cognito
+      issuer: https://cognito-idp.ap-northeast-2.amazonaws.com/ap-northeast-2_AbCdEfGhI
+      clientID: 7example8argocdclientid9
+      clientSecret: $argocd-oidc-cognito:clientSecret
+      requestedScopes: [openid, profile, email]
+    "url": "http://localhost:8080"

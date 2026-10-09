@@ -1,0 +1,63 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: platform
+  namespace: platform-gateway
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        name: platform-envoy
+        type: LoadBalancer
+        loadBalancerClass: service.k8s.aws/nlb
+        allocateLoadBalancerNodePorts: false
+        annotations:
+          service.beta.kubernetes.io/aws-load-balancer-scheme: internal
+          service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+          service.beta.kubernetes.io/aws-load-balancer-subnets: subnet-0123456789abcdef0,subnet-0123456789abcdef1
+          service.beta.kubernetes.io/aws-load-balancer-security-groups: sg-0123456789abcdef0
+          service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules: 'true'
+          service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: TCP
+          service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true,deletion_protection.enabled=false
+      envoyDeployment:
+        replicas: 3
+        pod:
+          labels:
+            gateway.envoyproxy.io/owning-gateway-name: platform
+            gateway.envoyproxy.io/owning-gateway-namespace: platform-gateway
+          topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: topology.kubernetes.io/zone
+            whenUnsatisfiable: ScheduleAnyway
+            labelSelector:
+              matchLabels:
+                gateway.envoyproxy.io/owning-gateway-name: platform
+                gateway.envoyproxy.io/owning-gateway-namespace: platform-gateway
+        container:
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+      envoyPDB:
+        minAvailable: 2
+  telemetry:
+    accessLog:
+      settings:
+      - format:
+          type: JSON
+          json:
+            start_time: '%START_TIME%'
+            method: '%REQ(:METHOD)%'
+            authority: '%REQ(:AUTHORITY)%'
+            response_code: '%RESPONSE_CODE%'
+            duration_ms: '%DURATION%'
+            request_id: '%REQ(X-REQUEST-ID)%'
+        sinks:
+        - type: File
+          file:
+            path: /dev/stdout
+    metrics:
+      prometheus: {}

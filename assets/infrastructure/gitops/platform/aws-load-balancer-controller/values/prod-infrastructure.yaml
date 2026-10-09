@@ -1,0 +1,5 @@
+# gitops/platform/aws-load-balancer-controller/values/prod-infrastructure.yaml
+# platform-aws-load-balancer-controller-prod Application이 values/prod.yaml 다음에 읽는 Git values입니다. 성공한 gateway_contract의 cluster_name·region·vpc_id를 승인 source로 반영합니다. 로컬 diagnostic-gateway.env는 자동 Helm 입력이 아닙니다.
+clusterName: contract2whale-prod-eks # 예: contract2whale-prod-eks (controller 가 태그 elbv2.k8s.aws/cluster 에 기록)
+region: ap-northeast-2            # 예: ap-northeast-2
+vpcId: vpc-0123456789abcdef0             # 예: vpc-0123456789abcdef0 (IMDS 조회 대신 명시)

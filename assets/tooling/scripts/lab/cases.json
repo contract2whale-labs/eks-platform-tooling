@@ -1,0 +1,144 @@
+{
+  "schema_version": 2,
+  "root": "work/incidents",
+  "cases": [
+    {
+      "case_id": "release-recovery",
+      "legacy_case": "t1",
+      "evidence_directory": "work/incidents/release-recovery/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "deployment-history",
+      "legacy_case": "t1a",
+      "evidence_directory": "work/incidents/deployment-history/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "incident-baseline",
+      "legacy_case": "t2",
+      "evidence_directory": "work/incidents/incident-baseline/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "image-pull",
+      "legacy_case": "t3",
+      "evidence_directory": "work/incidents/image-pull/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "process-crash",
+      "legacy_case": "t4",
+      "evidence_directory": "work/incidents/process-crash/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "memory-limit",
+      "legacy_case": "t5",
+      "evidence_directory": "work/incidents/memory-limit/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "dns-resolution",
+      "legacy_case": "t6",
+      "evidence_directory": "work/incidents/dns-resolution/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "data-connectivity",
+      "legacy_case": "t7",
+      "evidence_directory": "work/incidents/data-connectivity/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "node-disruption",
+      "legacy_case": "t8",
+      "evidence_directory": "work/incidents/node-disruption/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "scheduling-capacity",
+      "legacy_case": "t8a",
+      "evidence_directory": "work/incidents/scheduling-capacity/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "trace-egress",
+      "legacy_case": "t9",
+      "evidence_directory": "work/incidents/trace-egress/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "log-export",
+      "legacy_case": "t10",
+      "evidence_directory": "work/incidents/log-export/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "metrics-upload",
+      "legacy_case": "t11",
+      "evidence_directory": "work/incidents/metrics-upload/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "consumer-lag",
+      "legacy_case": "t12",
+      "evidence_directory": "work/incidents/consumer-lag/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "producer-authorization",
+      "legacy_case": "t13",
+      "evidence_directory": "work/incidents/producer-authorization/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "trace-storage",
+      "legacy_case": "t14",
+      "evidence_directory": "work/incidents/trace-storage/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "connection-budget",
+      "legacy_case": "t15",
+      "evidence_directory": "work/incidents/connection-budget/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "database-point-in-time-restore",
+      "legacy_case": "t16",
+      "evidence_directory": "work/incidents/database-point-in-time-restore/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "failover-verification",
+      "legacy_case": "t17",
+      "evidence_directory": "work/incidents/failover-verification/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "current-baseline",
+      "legacy_case": "t17b",
+      "evidence_directory": "work/incidents/current-baseline/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "cleanup-decision",
+      "legacy_case": "t18",
+      "evidence_directory": "work/incidents/cleanup-decision/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "reviewed-cleanup",
+      "legacy_case": "t18a",
+      "evidence_directory": "work/incidents/reviewed-cleanup/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    },
+    {
+      "case_id": "final-audit",
+      "legacy_case": "t19",
+      "evidence_directory": "work/incidents/final-audit/attempts/<attempt-id>",
+      "verification": "record integrity only; inspect observations for operational outcome"
+    }
+  ]
+}

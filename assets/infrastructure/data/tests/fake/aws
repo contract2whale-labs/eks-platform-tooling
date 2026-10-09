@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# 지원: sts get-caller-identity / secretsmanager get-secret-value · put-secret-value · update-secret-version-stage · get-random-password
+# 시크릿 저장 모델: $FAKE_DIR/secrets/<secret-id 의 마지막 항목>/<VersionId>.json 에 SecretString 을, <stage> 파일에 그 단계가 가리키는 VersionId 를 둡니다.
+# 실제 규칙 흉내: 비밀의 첫 버전을 만드는 put-secret-value 는 요청한 단계(AWSPENDING)에 더해 AWSCURRENT 도 붙입니다. FAKE_STAGE_CLEAR_FAIL 이면 AWSPENDING 표식 제거가 실패합니다.
+# FAKE_SECRET_READ_FAIL=<단계> 이면 그 단계의 get-secret-value 가 "없음" 이 아닌 권한 오류(AccessDeniedException)로 실패합니다.
+set -u
+printf 'aws %s\n' "$*" >> "${FAKE_LOG:-/dev/null}"
+svc="${1:-}"; op="${2:-}"; shift 2 2> /dev/null || true
+
+arg() { # 예: arg --secret-id "$@" → 그 옵션의 값
+  want="$1"; shift
+  while [ $# -gt 0 ]; do [ "$1" = "$want" ] && { printf '%s' "${2:-}"; return 0; }; shift; done
+  return 1
+}
+secret_dir() { printf '%s/secrets/%s' "${FAKE_DIR:-/tmp}" "$(basename "$(arg --secret-id "$@")")"; }
+query() { arg --query "$@" 2> /dev/null || true; }
+
+case "$svc $op" in
+  "sts get-caller-identity")
+    case "$(query "$@")" in
+      Arn) printf '%s\n' "${FAKE_CALLER_ARN:-arn:aws:sts::111111111111:assumed-role/contract2whale-dev-eks-app-database-operator/eks-contract2whale-database-operator-abc}" ;;
+      Account) printf '%s\n' "${FAKE_CALLER_ACCOUNT:-111111111111}" ;;
+      *) jq -cn --arg arn "${FAKE_CALLER_ARN:-arn:aws:sts::111111111111:assumed-role/contract2whale-dev-eks-app-database-operator/x}" --arg account "${FAKE_CALLER_ACCOUNT:-111111111111}" '{Arn: $arn, Account: $account, UserId: "AROAFAKE:x"}' ;;
+    esac ;;
+  "secretsmanager get-secret-value")
+    dir="$(secret_dir "$@")"; stage="$(arg --version-stage "$@" 2> /dev/null || printf AWSCURRENT)"
+    if [ "${FAKE_SECRET_READ_FAIL:-}" = "$stage" ]; then printf 'An error occurred (AccessDeniedException) when calling the GetSecretValue operation: User is not authorized to perform: secretsmanager:GetSecretValue\n' >&2; exit 254; fi
+    if [ ! -f "$dir/$stage" ]; then printf 'An error occurred (ResourceNotFoundException) when calling the GetSecretValue operation: Secrets Manager can'"'"'t find the specified secret value for staging label: %s\n' "$stage" >&2; exit 254; fi
+    version="$(cat "$dir/$stage")"
+    case "$(query "$@")" in
+      SecretString) cat "$dir/$version.json"; printf '\n' ;;
+      VersionId) printf '%s\n' "$version" ;;
+      *) jq -cn --arg v "$version" --rawfile s "$dir/$version.json" '{VersionId: $v, SecretString: $s}' ;;
+    esac ;;
+  "secretsmanager put-secret-value")
+    dir="$(secret_dir "$@")"; mkdir -p "$dir"; token="$(arg --client-request-token "$@")"
+    [ -z "${FAKE_SECRET_PUT_FAIL:-}" ] || { printf 'An error occurred (AccessDeniedException) when calling the PutSecretValue operation\n' >&2; exit 254; }
+    if [ -f "$dir/$token.json" ]; then printf 'An error occurred (ResourceExistsException) when calling the PutSecretValue operation: version with this token already exists\n' >&2; exit 254; fi
+    first=1; for f in "$dir"/*.json; do [ -e "$f" ] && first=0; done # 예: 버전이 하나도 없으면 첫 버전
+    cat > "$dir/$token.json"; printf '%s' "$token" > "$dir/AWSPENDING"
+    [ "$first" = 0 ] || printf '%s' "$token" > "$dir/AWSCURRENT" # 예: 첫 버전에는 AWSCURRENT 가 자동으로 붙음
+    printf '%s\n' "$token" ;;
+  "secretsmanager update-secret-version-stage")
+    dir="$(secret_dir "$@")"; stage="$(arg --version-stage "$@")"
+    move_to="$(arg --move-to-version-id "$@" 2> /dev/null || true)"; remove_from="$(arg --remove-from-version-id "$@" 2> /dev/null || true)"
+    if [ -n "$move_to" ]; then
+      [ -f "$dir/$move_to.json" ] || { printf 'An error occurred (ResourceNotFoundException)\n' >&2; exit 254; }
+      if [ "$stage" = AWSCURRENT ] && [ -f "$dir/AWSCURRENT" ]; then cp "$dir/AWSCURRENT" "$dir/AWSPREVIOUS"; fi
+      printf '%s' "$move_to" > "$dir/$stage"
+    elif [ -n "$remove_from" ] && [ -f "$dir/$stage" ] && [ "$(cat "$dir/$stage")" = "$remove_from" ]; then
+      [ "$stage" != AWSPENDING ] || [ -z "${FAKE_STAGE_CLEAR_FAIL:-}" ] || { printf 'An error occurred (InternalServiceError) when calling the UpdateSecretVersionStage operation\n' >&2; exit 254; }
+      rm -f "$dir/$stage"
+    fi
+    printf '{}\n' ;;
+  "secretsmanager get-random-password")
+    printf '%s\n' "${FAKE_RANDOM_PASSWORD:-FakeGeneratedPassword0123456789ab}" ;;
+  *) printf 'fake aws: unsupported %s %s\n' "$svc" "$op" >&2; exit 255 ;;
+esac

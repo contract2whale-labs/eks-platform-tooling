@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-loki-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm
+spec:
+  project: platform
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: logging
+  syncPolicy:
+    syncOptions:
+    - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
+  sources:
+  - repoURL: https://grafana-community.github.io/helm-charts
+    chart: loki
+    targetRevision: 18.13.0
+    helm:
+      releaseName: platform-loki
+      valueFiles:
+      - $values/gitops/platform/loki/values/prod.yaml
+  - repoURL: git@github.com:contract2whale-labs/cloud-platform-infrastructure.git
+    targetRevision: main
+    ref: values

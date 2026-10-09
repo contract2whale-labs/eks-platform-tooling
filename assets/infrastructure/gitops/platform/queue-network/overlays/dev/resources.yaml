@@ -1,0 +1,39 @@
+# gitops/platform/queue-network/overlays/dev/resources.yaml
+# 이 정책이 선택한 Pod의 egress 허용을 정의합니다. NetworkPolicy 허용은 다른 정책과 합쳐지므로 실제 전체 정책과 CNI 적용을 확인합니다. 클러스터 Pod 전체와 TCP 443 목적지도 허용하며, S3 버킷 접근은 Endpoint 정책과 IAM으로 따로 제한합니다. Pod Identity 에이전트 경로도 포함합니다.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tempo-managed-queue-egress
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: queue-managed
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: platform-tempo-e2 # 예: platform-tempo-e2 (chart 가 모든 Pod 에 붙이는 label)
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - to:
+        - namespaceSelector: {} # 예: 클러스터 안 모든 Pod (memberlist 7946 · gRPC 9095 · 게이트웨이 → distributor 4317 응답 · Prometheus 수집 응답)
+    - to:
+        - ipBlock: {cidr: 0.0.0.0/0} # 예: S3 (VPC Gateway 엔드포인트; 목적지는 S3 공개 주소 범위 — 관측 저장소로 가는 사설 경로 엔드포인트 정책이 버킷을 제한)
+      ports:
+        - {protocol: TCP, port: 443}
+    - to:
+        - ipBlock: {cidr: 10.60.32.0/24} # 예: 브로커 서브넷 3개만 (VPC 전체가 아님)
+        - ipBlock: {cidr: 10.60.33.0/24}
+        - ipBlock: {cidr: 10.60.34.0/24}
+      ports:
+        - {protocol: TCP, port: 9096} # 예: 9096 (TLS + SASL/SCRAM 리스너)
+    - to:
+        - ipBlock: {cidr: 169.254.170.23/32} # 예: EKS Pod Identity 에이전트 (노드마다 같은 링크 로컬 주소 — S3 자격 증명을 여기서 받음)
+      ports:
+        - {protocol: TCP, port: 80}

@@ -1,0 +1,8 @@
+# gitops/platform/monitoring-resources/overlays/dev/application.logs-insights
+# 대시보드 연결: CloudWatch Logs Insights 질의입니다 (운영 도구 Fluent Bit 이 보내는 플랫폼 컨테이너 로그 그룹 — kube-system 등). 앱(contract2whale-demo) 로그는 Fluent Bit 이 제외하므로 Loki(데이터 소스 uid loki)에서 조회합니다.
+# 사용: CloudWatch Logs Insights 콘솔에서 실제 operations_contract.platform_log_group_name과 승인 시간 구간을 선택한 뒤 아래 질의를 붙여 넣습니다. API 오류·조회 범위·실제 결과를 구분합니다.
+fields @timestamp, kubernetes.namespace_name as namespace, kubernetes.pod_name as pod, log
+| filter kubernetes.namespace_name = "kube-system"
+| filter log like /(?i)(error|failed|timeout)/
+| sort @timestamp desc
+| limit 100

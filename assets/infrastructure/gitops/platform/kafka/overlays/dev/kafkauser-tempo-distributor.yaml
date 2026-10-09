@@ -1,0 +1,37 @@
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaUser
+metadata:
+  name: tempo-distributor
+  namespace: messaging
+  labels:
+    strimzi.io/cluster: platform-queue
+    platform-managed: queue
+spec:
+  authentication:
+    type: scram-sha-512
+  authorization:
+    type: simple
+    acls:
+    - resource:
+        type: topic
+        name: platform-traces
+        patternType: literal
+      operations:
+      - Describe
+      - Write
+      host: '*'
+      type: allow
+    - resource:
+        type: topic
+        name: '*'
+        patternType: literal
+      operations:
+      - Create
+      host: '*'
+      type: deny
+    - resource:
+        type: cluster
+      operations:
+      - Create
+      host: '*'
+      type: deny

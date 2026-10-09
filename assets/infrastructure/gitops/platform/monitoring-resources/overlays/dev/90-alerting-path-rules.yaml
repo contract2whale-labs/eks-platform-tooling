@@ -1,0 +1,56 @@
+# gitops/platform/monitoring-resources/overlays/dev/90-alerting-path-rules.yaml
+# job · endpoint 값은 kube-prometheus-stack 88.6.2 가 만드는 Alertmanager ServiceMonitor(job platform-monitoring-alertmanager, port http-web) 기준입니다.
+apiVersion: monitoring.coreos.com/v1 # 예: monitoring.coreos.com/v1
+kind: PrometheusRule                 # 예: PrometheusRule
+metadata:
+  name: observability-alerting-path  # 예: observability-alerting-path
+  namespace: monitoring              # 예: monitoring
+  labels:
+    release: platform-monitoring     # 예: platform-monitoring (ruleSelector)
+spec:
+  groups:
+    - name: observability.alerting-path # 예: 룰 그룹
+      interval: 30s                     # 예: 30s
+      rules:
+        - alert: AlertDeliveryFailing   # 예: Alertmanager 가 SNS 게시에 실패 (이 규칙도 같은 경로로 나감)
+          expr: increase(alertmanager_notifications_failed_total[10m]) > 0
+          for: 5m                       # 예: 5m
+          labels: {severity: critical}  # 예: critical
+          annotations:
+            summary: Alert delivery to the environment topic is failing # 예: 메일 제목의 한 줄
+        - alert: AlertSenderDown        # 예: 대상은 있는데 응답 없음
+          expr: up{job="platform-monitoring-alertmanager",endpoint="http-web"} == 0
+          for: 2m                       # 예: 2m
+          labels: {severity: critical}  # 예: critical
+          annotations:
+            summary: The external alert sender is not responding # 예: 메일 제목의 한 줄
+        - alert: AlertSenderMissing     # 예: 대상 자체가 사라짐 (없음 ≠ 정상)
+          expr: absent(up{job="platform-monitoring-alertmanager",endpoint="http-web"})
+          for: 5m                       # 예: 5m
+          labels: {severity: critical}  # 예: critical
+          annotations:
+            summary: The external alert sender target is missing; do not treat missing data as healthy # 예: 이 문장을 그대로 둠
+        - alert: AlertSenderLowReplicas # 예: 학습 설계의 Alertmanager 1대가 준비되지 않음
+          expr: (sum(up{job="platform-monitoring-alertmanager",endpoint="http-web"}) or vector(0)) < 1
+          for: 10m                      # 예: 10m
+          labels: {severity: warning}   # 예: warning
+          annotations:
+            summary: The configured alert sender is unavailable # 예: 메일 제목의 한 줄
+        - alert: RuleEvaluationFailing  # 예: 규칙 평가 실패
+          expr: increase(prometheus_rule_evaluation_failures_total[10m]) > 0
+          for: 5m                       # 예: 5m
+          labels: {severity: warning}   # 예: warning
+          annotations:
+            summary: Rule evaluation is failing; some conditions are not being checked # 예: 메일 제목의 한 줄
+        - alert: RuleEvaluationSkipped  # 예: 평가 주기 누락
+          expr: increase(prometheus_rule_group_iterations_missed_total[10m]) > 0
+          for: 10m                      # 예: 10m
+          labels: {severity: warning}   # 예: warning
+          annotations:
+            summary: Rule group iterations are being missed # 예: 메일 제목의 한 줄
+        - alert: SenderNotConnected     # 예: Prometheus 가 Alertmanager 를 하나도 찾지 못함
+          expr: prometheus_notifications_alertmanagers_discovered < 1
+          for: 5m                       # 예: 5m
+          labels: {severity: critical}  # 예: critical
+          annotations:
+            summary: The rule evaluator has no alert sender to send to # 예: 메일 제목의 한 줄

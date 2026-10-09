@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "source_urls": {
+    "aws-load-balancer-controller": "https://aws.github.io/eks-charts",
+    "envoy-gateway": "oci://docker.io/envoyproxy/gateway-helm"
+  },
+  "resources": [
+    {
+      "name": "albtargetcontrolconfigs.elbv2.k8s.aws",
+      "source": "aws-load-balancer-controller",
+      "version": "3.5.0",
+      "sha256": "ae5727fe03be65df7d4de3d8a7bf51bf7a5ddae3117754f17a3155fa44172f59"
+    },
+    {
+      "name": "globalaccelerators.aga.k8s.aws",
+      "source": "aws-load-balancer-controller",
+      "version": "3.5.0",
+      "sha256": "476618cfb0d02b965f23da0ab04ca60f23b83aca8f9d01caa1d65983473e4fa9"
+    },
+    {
+      "name": "ingressclassparams.elbv2.k8s.aws",
+      "source": "aws-load-balancer-controller",
+      "version": "3.5.0",
+      "sha256": "6334e50a131b75aca027a1dc2caa80335969292978fa816c705c1bfcfa6825c5"
+    },
+    {
+      "name": "targetgroupbindings.elbv2.k8s.aws",
+      "source": "aws-load-balancer-controller",
+      "version": "3.5.0",
+      "sha256": "6af85e6e9b3f2865030e035a06191c167f609ca7b55d55fbe8cdcef819190dc0"
+    },
+    {
+      "name": "listenerruleconfigurations.gateway.k8s.aws",
+      "source": "aws-load-balancer-controller",
+      "version": "3.5.0",
+      "sha256": "1d19ba76f16f83d1cf2a954bffabb1ac7b488828a88ed871826e4a9aa9fb8014"
+    },
+    {
+      "name": "loadbalancerconfigurations.gateway.k8s.aws",
+      "source": "aws-load-balancer-controller",
+      "version": "3.5.0",
+      "sha256": "4d5d32b0adc262e6905ba079067bd497e5069847c65d79152b73f30026c27a89"
+    },
+    {
+      "name": "targetgroupconfigurations.gateway.k8s.aws",
+      "source": "aws-load-balancer-controller",
+      "version": "3.5.0",
+      "sha256": "a070f83ae7021b62c59734beb060a0d98cd6282725e6aedc1c2d3effa8b82bf1"
+    },
+    {
+      "name": "backendtlspolicies.gateway.networking.k8s.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "96394901602b4b72aa538343e2df970b842b907cfc30256c2cf4115973177f51"
+    },
+    {
+      "name": "gatewayclasses.gateway.networking.k8s.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "556ec36151a5f3a0cc9037d94404ddebe47b68907456975daaa57cd8ae121c4f"
+    },
+    {
+      "name": "gateways.gateway.networking.k8s.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "14dc5354b6ad3d8c3705beff4d31a7bf5330a1a88dcc1414575692d14c7fbf04"
+    },
+    {
+      "name": "grpcroutes.gateway.networking.k8s.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "5aa20bddd5248b4fb50aaead619f9cd55ae5b4c3fd87b54bfcae4de350addaec"
+    },
+    {
+      "name": "httproutes.gateway.networking.k8s.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "954a9a12ac48de4f34c869f05377d83bc3384404b7fdef85016839446b1aa679"
+    },
+    {
+      "name": "listenersets.gateway.networking.k8s.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "fce0a64ef17069de1a9efb26f25489e643515affbc1292df9dc1d3a41b9aff3e"
+    },
+    {
+      "name": "referencegrants.gateway.networking.k8s.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "c5719ed09a7ec35a8e5bcba50816067a0b2696bc163ca439237fc09401abebf2"
+    },
+    {
+      "name": "tcproutes.gateway.networking.k8s.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "dbcb867d321237b8b443ec1ab547e4bfed47480d129e3f7d7094bcb6f510241f"
+    },
+    {
+      "name": "tlsroutes.gateway.networking.k8s.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "53c5190eb16861f73d74c122a229fc720d53df73343992e0829a50a98b054171"
+    },
+    {
+      "name": "udproutes.gateway.networking.k8s.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "14acfe4024e174a5c2551401bca2fc0d1bd103d35e647c00661bb3de904c6113"
+    },
+    {
+      "name": "xbackends.gateway.networking.x-k8s.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "7b3c8aa5405cf799759cf83d971907a013a83f241a3a7a266302fc63e85ef986"
+    },
+    {
+      "name": "xbackendtrafficpolicies.gateway.networking.x-k8s.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "5353d75893114ac145d0d549985bd32284015a5813bbb971166673b6a4aa2957"
+    },
+    {
+      "name": "xmeshes.gateway.networking.x-k8s.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "95d1173f01088223e8ecace1df51575a40d6c9a220cff15834a3289a3e25fa5a"
+    },
+    {
+      "name": "backends.gateway.envoyproxy.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "3d8b560415c87754790bfc659389c8b78b8d45a925b0aa61fb9c8477e05fe415"
+    },
+    {
+      "name": "backendtrafficpolicies.gateway.envoyproxy.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "cd8cad05c3289e2029ac92341844cc64eeb95259559153b1ae4147dd733a2f99"
+    },
+    {
+      "name": "clienttrafficpolicies.gateway.envoyproxy.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "262594537fd58337fd0bb2dcd65b133c84acaaf026677ef5dfee29b529e8a75b"
+    },
+    {
+      "name": "envoyextensionpolicies.gateway.envoyproxy.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "1394b74da19d683af6eadd359253386661e0e98436954ebf0889f9fc587141a1"
+    },
+    {
+      "name": "envoypatchpolicies.gateway.envoyproxy.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "01fc78202a24e96739b3e1f9a6662973d1b9b1cacd9cfbd944be1b66872acd06"
+    },
+    {
+      "name": "envoyproxies.gateway.envoyproxy.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "9d78f334a811cbf66d448ec3fd6ada8bac0fcba76602b809df5a80443ba6b8b9"
+    },
+    {
+      "name": "httproutefilters.gateway.envoyproxy.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "ee4f9a873d993eca95cce0c927afeb72023114d1cf8e302621cf7d94b3bc077a"
+    },
+    {
+      "name": "securitypolicies.gateway.envoyproxy.io",
+      "source": "envoy-gateway",
+      "version": "v1.9.1",
+      "sha256": "f52a0762da44dc20f87918c18aff4cb83cb6ac9d4bd16e685d605f87de54ec86"
+    }
+  ]
+}

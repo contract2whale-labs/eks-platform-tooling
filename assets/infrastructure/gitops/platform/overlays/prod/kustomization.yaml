@@ -1,0 +1,34 @@
+# gitops/platform/overlays/prod/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base                                 # 예: dev 와 같은 base
+  - env.yaml                                   # 예: ConfigMap delivery-env (prod 계정 값; 운영 환경 가 갱신)
+replacements:
+  - source:
+      kind: ConfigMap
+      name: delivery-env
+      fieldPath: data.ARGOCD_SECRETS_ROLE_ARN
+    targets:
+      - select: {kind: SecretStore, name: delivery-secrets}
+        fieldPaths: [spec.provider.aws.role]
+  - source:
+      kind: ConfigMap
+      name: delivery-env
+      fieldPath: data.GITOPS_SSH_URL
+    targets:
+      - select: {kind: ExternalSecret, name: argocd-repo-gitops}
+        fieldPaths: [spec.target.template.data.url]
+  - source:
+      kind: ConfigMap
+      name: delivery-env
+      fieldPath: data.ECR_IMAGE_PATTERN
+    targets:
+      - select: {kind: ClusterPolicy, name: verify-image-signature}
+        fieldPaths:
+          - spec.rules.[name=check-signature].verifyImages.0.imageReferences.0
+      - select: {kind: ClusterPolicy, name: restrict-image-registries}
+        fieldPaths:
+          - spec.rules.[name=ecr-only].validate.pattern.spec.=(initContainers).0.image
+          - spec.rules.[name=ecr-only].validate.pattern.spec.containers.0.image
+          - spec.rules.[name=ecr-only].validate.pattern.spec.=(ephemeralContainers).0.image

@@ -1,0 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- configmap-database-bootstrap-reviewedrequest001.yaml
+- job-database-bootstrap-reviewedrequest001.yaml
+- operator-check-job.yaml

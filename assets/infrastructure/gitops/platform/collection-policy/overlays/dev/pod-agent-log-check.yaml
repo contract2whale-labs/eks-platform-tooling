@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: agent-log-check
+  namespace: team-platform-check
+  labels:
+    app.kubernetes.io/name: agent-log-check
+spec:
+  restartPolicy: Never
+  activeDeadlineSeconds: 900
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+  - name: probe
+    image: public.ecr.aws/docker/library/busybox:1.37.0
+    command: [sh, -c, 'for i in 1 2 3 4 5; do echo platform-agent-log-check; sleep 2; done; sleep 850']
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities: {drop: [ALL]}
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {memory: 32Mi}

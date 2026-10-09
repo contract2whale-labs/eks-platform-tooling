@@ -1,0 +1,10 @@
+# backend.hcl.example — dev platform/gateway 루트 모듈
+# backend.hcl 로 복사한 뒤 bucket 과 allowed_account_ids 를 work/lab.env 의 DEV_STATE_BUCKET · DEV_ACCOUNT_ID 로 바꿉니다.
+# 사용: terraform init -backend-config=backend.hcl
+
+bucket              = "company-dev-tfstate-111111111111"  # 예: 관련 구성 이 만든 Dev State 버킷 (공유)
+key                 = "platform/gateway/terraform.tfstate" # 예: 이 루트 모듈 전용 key (실행 디렉터리 경로 규칙)
+region              = "ap-northeast-2"                    # 예: 버킷이 있는 리전
+encrypt             = true                                # 예: true (State 객체 저장 암호화)
+use_lockfile        = true                                # 예: true (State key 뒤 .tflock 객체로 동시 실행 차단)
+allowed_account_ids = ["111111111111"]                    # 예: ["111111111111"] (State 접근 계정 제한)

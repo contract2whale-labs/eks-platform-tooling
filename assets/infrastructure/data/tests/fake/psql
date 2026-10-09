@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# 모델: $FAKE_DIR/pg/passwords/<role> 에 ALTER ROLE 로 넣은 비밀번호를, $FAKE_DIR/pg/objects 에 bootstrap.sql 실행 여부를 둡니다.
+set -u
+sql=""; file=""; vars=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -c) sql="$2"; shift ;;
+    -f) file="$2"; shift ;;
+    -v) vars="$vars $2"; shift ;;
+  esac
+  shift
+done
+# -c · -f 가 없으면 실제 psql 처럼 표준 입력의 SQL 을 읽습니다. \getenv <psql 변수> <환경 변수> 한 줄은 그 환경 변수의 값을 psql 변수로 받는 것으로 해석합니다.
+# 주의: 가짜는 SQL 을 파싱하지 않습니다 — -c 에 :"role" 을 넣는 것 같은 문법 오류는 여기서 잡히지 않고 tests/integration-postgres.sh(실제 PostgreSQL 17)가 잡습니다.
+if [ -z "$sql" ] && [ -z "$file" ] && [ ! -t 0 ]; then
+  while IFS= read -r line; do
+    case "$line" in
+      '\getenv '*) name="${line##* }"; var="${line#\\getenv }"; var="${var%% *}"; vars="$vars $var=$(printenv "$name" || true)" ;;
+      *) sql="$sql$line" ;;
+    esac
+  done
+fi
+printf 'psql user=%s sslmode=%s sql=%s file=%s vars=%s\n' "${PGUSER:-}" "${PGSSLMODE:-}" "$sql" "$file" "$(printf '%s' "$vars" | sed 's/pw=.*/pw=<redacted>/')" >> "${FAKE_LOG:-/dev/null}"
+pg="${FAKE_DIR:-/tmp}/pg"; mkdir -p "$pg/passwords"
+
+# 접속 실패 모의: 관리자든 앱 계정이든 연결 자체가 안 되는 상황
+if [ -n "${FAKE_PG_UNREACHABLE:-}" ]; then printf 'psql: error: connection to server at "%s" failed: Connection timed out\n' "${PGHOST:-db}" >&2; exit 2; fi
+
+# 앱 계정 로그인: ALTER ROLE 로 넣은 비밀번호와 같을 때만 성공 (FAKE_PG_REJECT_APP_LOGIN 이면 항상 실패)
+# 접두사 commerce_ 가 앱 계정 두 개(commerce_migrator · commerce_runtime)를 관리자 계정과 가릅니다 — bootstrap.sh 의 DATA_DB_*_ROLE 기본값과 같은 접두사입니다.
+case "${PGUSER:-}" in
+  commerce_*)
+    [ -z "${FAKE_PG_REJECT_APP_LOGIN:-}" ] || { printf 'psql: error: FATAL: password authentication failed for user "%s"\n' "$PGUSER" >&2; exit 2; }
+    [ -f "$pg/passwords/$PGUSER" ] && [ "$(cat "$pg/passwords/$PGUSER")" = "${PGPASSWORD:-}" ] || { printf 'psql: error: FATAL: password authentication failed for user "%s"\n' "$PGUSER" >&2; exit 2; }
+    ;;
+  *)
+    [ "${PGPASSWORD:-}" = "${FAKE_PG_MASTER_PASSWORD:-master-fixture-password}" ] || { printf 'psql: error: FATAL: password authentication failed for user "%s"\n' "${PGUSER:-}" >&2; exit 2; }
+    ;;
+esac
+
+if [ -n "$file" ]; then
+  [ -f "$file" ] || { printf 'psql: error: %s: No such file\n' "$file" >&2; exit 1; }
+  [ -z "${FAKE_PG_SQL_FAIL:-}" ] || { printf 'psql:%s:1: ERROR: permission denied\n' "$file" >&2; exit 3; }
+  case "$file" in */migrations/*) : ;; *) : > "$pg/objects" ;; esac
+  exit 0
+fi
+
+case "$sql" in
+  "SELECT 1") printf '1\n' ;;
+  "SHOW server_version") printf '%s\n' "${FAKE_PG_VERSION:-17.6}" ;;
+  "SHOW transaction_read_only") printf '%s\n' "${FAKE_PG_READ_ONLY:-on}" ;;
+  "SELECT ssl FROM pg_stat_ssl"*) printf '%s\n' "${FAKE_PG_SSL:-t}" ;;
+  "SELECT current_user") printf '%s\n' "${PGUSER:-}" ;;
+  "CREATE TABLE IF NOT EXISTS "*schema_migrations*) : ;;
+  "SELECT version FROM "*schema_migrations*) [ -f "$pg/migrations" ] && cat "$pg/migrations" || true ;;
+  "INSERT INTO "*schema_migrations*) printf '%s\n' "$sql" | sed "s/.*VALUES ('\([^']*\)'.*/\1/" >> "$pg/migrations" ;;
+  "SELECT count(*) FROM pg_namespace"*|"SELECT count(*) FROM pg_roles"*)
+    if [ -f "$pg/objects" ] || [ -n "${FAKE_PG_OBJECTS_EXIST:-}" ]; then printf '1\n'; else printf '0\n'; fi ;;
+  "ALTER ROLE "*)
+    role="$(printf '%s' "$vars" | sed -n 's/.*role=\([^ ]*\).*/\1/p')"; pw="$(printf '%s' "$vars" | sed -n 's/.*pw=\(.*\)$/\1/p')"
+    [ -z "${FAKE_PG_ALTER_FAIL:-}" ] || { printf 'ERROR: must be superuser\n' >&2; exit 3; }
+    printf '%s' "$pw" > "$pg/passwords/$role" ;;
+  *) printf 'fake psql: unsupported sql: %s\n' "$sql" >&2; exit 255 ;;
+esac

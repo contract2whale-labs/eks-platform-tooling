@@ -1,0 +1,36 @@
+# exposure_mode가 waf인 Prod 기본 과정에서는 이 Application을 등록하거나 sync하지 않습니다.
+# waf는 gateway contract.external_dns_enabled=false이며 external-dns 역할·association을 만들지 않습니다.
+# 다른 승인 노출 모드에서만 실제 gateway contract의 활성화·신원·DNS zone 소유권을 먼저 확인합니다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-external-dns-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm
+spec:
+  project: platform
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    syncOptions:
+    - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
+  sources:
+  - repoURL: https://kubernetes-sigs.github.io/external-dns/
+    chart: external-dns
+    targetRevision: 1.21.1
+    helm:
+      releaseName: external-dns
+      valueFiles:
+      - $values/gitops/platform/external-dns/values/prod.yaml
+      - $values/gitops/platform/external-dns/values/prod-infrastructure.yaml
+  - repoURL: git@github.com:contract2whale-labs/cloud-platform-infrastructure.git
+    targetRevision: main
+    ref: values

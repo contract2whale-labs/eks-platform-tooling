@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- serviceaccount-platform-thanos-store.yaml
+- service-platform-thanos-storegateway.yaml
+- statefulset-platform-thanos-storegateway.yaml
+- servicemonitor-platform-thanos-storegateway.yaml
+- serviceaccount-platform-thanos-query.yaml
+- service-platform-thanos-query.yaml
+- deployment-platform-thanos-query.yaml
+- servicemonitor-platform-thanos-query.yaml
+- serviceaccount-platform-thanos-compact.yaml
+- persistentvolumeclaim-data-platform-thanos-compactor.yaml
+- service-platform-thanos-compactor.yaml
+- deployment-platform-thanos-compactor.yaml
+- servicemonitor-platform-thanos-compactor.yaml
+namespace: monitoring

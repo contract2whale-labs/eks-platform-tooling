@@ -1,0 +1,53 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+resources: []
+helmCharts:
+- name: tempo-distributed
+  repo: https://grafana-community.github.io/helm-charts
+  version: 3.5.1
+  releaseName: platform-tempo-e3
+  namespace: monitoring
+  valuesFile: values.yaml
+  includeCRDs: true
+patches:
+- target:
+    kind: Deployment
+    labelSelector: app.kubernetes.io/component=block-builder
+  patch: "- op: replace\n  path: /spec/template/spec/serviceAccountName\n  value:\
+    \ platform-tempo-block-builder\n"
+- target:
+    kind: StatefulSet
+    labelSelector: app.kubernetes.io/component=block-builder
+  patch: "- op: replace\n  path: /spec/template/spec/serviceAccountName\n  value:\
+    \ platform-tempo-block-builder\n"
+- target:
+    kind: Deployment
+    labelSelector: app.kubernetes.io/component=querier
+  patch: "- op: replace\n  path: /spec/template/spec/serviceAccountName\n  value:\
+    \ platform-tempo-querier\n"
+- target:
+    kind: StatefulSet
+    labelSelector: app.kubernetes.io/component=querier
+  patch: "- op: replace\n  path: /spec/template/spec/serviceAccountName\n  value:\
+    \ platform-tempo-querier\n"
+- target:
+    kind: Deployment
+    labelSelector: app.kubernetes.io/component=backend-scheduler
+  patch: "- op: replace\n  path: /spec/template/spec/serviceAccountName\n  value:\
+    \ platform-tempo-querier\n"
+- target:
+    kind: StatefulSet
+    labelSelector: app.kubernetes.io/component=backend-scheduler
+  patch: "- op: replace\n  path: /spec/template/spec/serviceAccountName\n  value:\
+    \ platform-tempo-querier\n"
+- target:
+    kind: Deployment
+    labelSelector: app.kubernetes.io/component=backend-worker
+  patch: "- op: replace\n  path: /spec/template/spec/serviceAccountName\n  value:\
+    \ platform-tempo-backend-worker\n"
+- target:
+    kind: StatefulSet
+    labelSelector: app.kubernetes.io/component=backend-worker
+  patch: "- op: replace\n  path: /spec/template/spec/serviceAccountName\n  value:\
+    \ platform-tempo-backend-worker\n"

@@ -1,0 +1,8 @@
+# gitops/platform/backup-restore/requests/restore.yaml
+apiVersion: velero.io/v1
+kind: Restore
+metadata: {name: platform-storage-probe, namespace: velero}           # 예: velero 의 platform-storage-probe (복원 선언 이름)
+spec:
+  backupName: platform-storage-probe               # 예: platform-storage-probe (61-backup.yaml 의 이름과 같아야 함)
+  namespaceMapping: {backup-probe: backup-probe-restored} # 예: 원본 네임스페이스의 객체를 복원 네임스페이스으로 보냄 (없으면 같은 이름에 섞임)
+  restorePVs: true                     # 예: true (스냅샷에서 새 볼륨을 만들어 PVC 에 연결)

@@ -1,0 +1,76 @@
+# gitops/platform/values/kyverno.yaml
+# 권한과 승인 제어: Kyverno chart 3.9.0 (app v1.19.0) 의 Helm 값입니다 (환경 무관 — 계정 값은 정책 overlay 의 replacements 가 넣음). Argo CD Application(gitops/clusters/<env>/apps/kyverno.yaml)이 이 파일로 chart 를 렌더합니다.
+# 서명 · attestation 조회는 ECR, 공개 키는 KMS(keys.kms)에서 읽으며 자격 증명은 Pod Identity(modules/delivery kyverno-identity.tf: admission · reports controller SA)입니다. 조회 결과 캐시를 명시해 Pod 대량 생성 시 ECR · KMS 호출 한도를 피합니다.
+config:
+  webhooks:
+    namespaceSelector:
+      matchExpressions:
+        - {key: platform-role, operator: In, values: [tenant]}  # 예: tenant 네임스페이스만 (Admission 허용 · 거부 조건 label 계약)
+  excludeKyvernoNamespace: true        # 예: true (kyverno 네임스페이스 자신은 제외)
+features:
+  registryClient:
+    allowInsecure: false               # 예: false (ECR 은 TLS)
+    credentialHelpers: [default, amazon] # 예: default + amazon (ECR 토큰은 Pod Identity 자격 증명으로 발급)
+  policyReports:
+    enabled: true                      # 예: true (PolicyReport 로 위반 기록)
+admissionController:
+  replicas: 2                          # 예: 2 (failurePolicy Fail 인 웹훅의 이중화; chart 가 PDB 도 만듦)
+  nodeSelector: {workload: system}     # 예: system 노드 그룹
+  podDisruptionBudget:
+    enabled: true                      # 예: true (드레인 시 최소 1개 유지)
+    minAvailable: 1
+  topologySpreadConstraints:
+    - maxSkew: 1                       # 예: 노드 사이에 고르게 (한 노드 장애로 둘 다 죽지 않게)
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels: {app.kubernetes.io/component: admission-controller}
+  serviceAccount:
+    name: kyverno-admission-controller # 예: Pod Identity 연결의 service_account 와 같은 이름
+  container:
+    extraArgs:
+      imageVerifyCacheEnabled: "true"        # 예: 서명 · attestation 조회 결과 캐시 (기본값이지만 명시)
+      imageVerifyCacheTTLDuration: "1h"      # 예: 1시간 (같은 digest 는 1시간 안에 ECR · KMS 를 다시 부르지 않음)
+      imageVerifyCacheMaxSize: "1000"        # 예: 캐시 항목 상한
+    extraEnvVars:
+      - {name: AWS_REGION, value: ap-northeast-2}         # 예: KMS · ECR 클라이언트 리전 (Kyverno 문서: awskms 는 AWS_REGION 필요)
+      - {name: AWS_DEFAULT_REGION, value: ap-northeast-2} # 예: 같은 값
+    resources:
+      requests: {cpu: 100m, memory: 256Mi} # 예: 100m · 256Mi (용량 표)
+      limits: {memory: 512Mi}          # 예: 512Mi
+  initContainer:
+    resources:
+      requests: {cpu: 10m, memory: 64Mi}   # 예: 10m · 64Mi
+      limits: {memory: 128Mi}          # 예: 128Mi
+backgroundController:
+  replicas: 1                          # 예: 1
+  nodeSelector: {workload: system}     # 예: system 노드 그룹
+  serviceAccount:
+    name: kyverno-background-controller # 예: 기본 이름 (AWS 권한 없음)
+  resources:
+    requests: {cpu: 50m, memory: 128Mi} # 예: 50m · 128Mi
+    limits: {memory: 256Mi}            # 예: 256Mi
+cleanupController:
+  replicas: 1                          # 예: 1
+  nodeSelector: {workload: system}     # 예: system 노드 그룹
+  serviceAccount:
+    name: kyverno-cleanup-controller   # 예: 기본 이름
+  resources:
+    requests: {cpu: 50m, memory: 64Mi} # 예: 50m · 64Mi
+    limits: {memory: 128Mi}            # 예: 128Mi
+reportsController:
+  replicas: 1                          # 예: 1
+  nodeSelector: {workload: system}     # 예: system 노드 그룹
+  serviceAccount:
+    name: kyverno-reports-controller   # 예: Pod Identity 연결의 service_account 와 같은 이름 (백그라운드 서명 재검증이 ECR · KMS 를 읽음)
+  extraArgs:
+    imageVerifyCacheEnabled: "true"    # 예: reports controller 도 같은 캐시 설정
+    imageVerifyCacheTTLDuration: "1h"
+    imageVerifyCacheMaxSize: "1000"
+  extraEnvVars:
+    - {name: AWS_REGION, value: ap-northeast-2}
+    - {name: AWS_DEFAULT_REGION, value: ap-northeast-2}
+  resources:
+    requests: {cpu: 50m, memory: 128Mi} # 예: 50m · 128Mi
+    limits: {memory: 256Mi}            # 예: 256Mi
+# 정책은 chart 값이 아니라 gitops/platform/base/clusterpolicy-*.yaml과 해당 kustomization.yaml을 Application platform-policies가 적용합니다.

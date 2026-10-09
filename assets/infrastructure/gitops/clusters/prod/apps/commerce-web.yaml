@@ -1,0 +1,33 @@
+# gitops/clusters/prod/apps/commerce-web.yaml — 스토어프런트의 Argo CD Application
+# HTTPRoute 의 backendRefs weight 는 Argo Rollouts(Gateway API 플러그인)가 canary 중에 바꾸므로 ignoreDifferences 로 비교에서 뺍니다 — 빼지 않으면 selfHeal 이 canary 를 되돌립니다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: commerce-web-prod                       # 예: commerce-web-prod (argocd app get commerce-web-prod)
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"          # 예: commerce-api 뒤 (Store API 가 먼저 떠 있어야 첫 렌더가 상품을 그림)
+spec:
+  project: delivery                            # 예: delivery
+  source:
+    repoURL: git@github.com:contract2whale-labs/cloud-platform-infrastructure.git # 예: 인프라 저장소
+    targetRevision: main                       # 예: main
+    path: gitops/apps/commerce-web/overlays/prod # 예: Kustomize overlay
+  destination:
+    server: https://kubernetes.default.svc     # 예: 이 클러스터
+    namespace: contract2whale-demo                # 예: 앱 네임스페이스와 수집 허용 이 만드는 테넌트 네임스페이스
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=false                  # 예: 네임스페이스는 앱 네임스페이스와 수집 허용 소유
+      - ServerSideApply=true                   # 예: server-side apply
+      - PruneLast=true                         # 예: 새 리소스가 정상이 된 뒤 옛 리소스 정리
+      - RespectIgnoreDifferences=true          # 예: ignoreDifferences 필드를 sync 때도 덮어쓰지 않음 (HTTPRoute weight)
+    retry:
+      limit: 2                                 # 예: 2
+      backoff: {duration: 30s, factor: 2, maxDuration: 3m}
+  ignoreDifferences:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      jqPathExpressions:
+        - .spec.rules[].backendRefs[].weight   # 예: canary 가중치 (Argo Rollouts 가 조정)
+  revisionHistoryLimit: 5                      # 예: 5

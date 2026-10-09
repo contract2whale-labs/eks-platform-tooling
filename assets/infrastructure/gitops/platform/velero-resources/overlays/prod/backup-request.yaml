@@ -1,0 +1,12 @@
+# gitops/platform/velero-resources/overlays/prod/backup-request.yaml
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: platform-storage-probe
+  namespace: velero
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm
+spec:
+  includedNamespaces: [backup-probe]   # 예: backup-probe (백업할 네임스페이스)
+  snapshotVolumes: true                # 예: true (볼륨 스냅샷도 함께 만듭니다 — EC2 스냅샷 태그 velero.io/backup=platform-storage-probe)
+  ttl: 24h                             # 예: 24h (이 백업의 보관 기간)

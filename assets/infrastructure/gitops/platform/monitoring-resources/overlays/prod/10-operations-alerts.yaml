@@ -1,0 +1,37 @@
+# gitops/platform/monitoring-resources/overlays/prod/10-operations-alerts.yaml
+apiVersion: monitoring.coreos.com/v1 # 예: monitoring.coreos.com/v1 (운영자가 정의한 API 그룹과 버전)
+kind: PrometheusRule                 # 예: PrometheusRule
+metadata:
+  name: platform-operations              # 예: platform-operations (선언 이름)
+  namespace: monitoring                  # 예: monitoring (Prometheus 와 같은 네임스페이스)
+  labels: {release: platform-monitoring} # 예: release=platform-monitoring (ruleSelector 가 고르는 표시)
+spec:
+  groups:
+    - name: platform-operations # 예: platform-operations (룰 그룹 이름)
+      rules:
+        - alert: VeleroBackupFailures                        # 예: 백업 실패 경보 (백업과 복구 시험 velero)
+          expr: increase(velero_backup_failure_total[1h]) > 0 # 예: 1시간 동안 실패 수가 늘면 참
+          for: 5m                                             # 예: 5m (조건이 이 시간 동안 이어져야 발생)
+          labels: {severity: warning}                         # 예: warning (심각도 표시)
+          annotations:
+            summary: Velero backup failure detected # 예: 경보에 붙는 설명 한 줄
+        - alert: FluentBitOutputErrors                          # 예: 로그 전송 오류 경보 (플랫폼 컨테이너 로그 수집 fluent-bit)
+          expr: increase(fluentbit_output_errors_total[10m]) > 0 # 예: 10분 동안 오류 수가 늘면 참
+          for: 5m                                                # 예: 5m
+          labels: {severity: warning}                            # 예: warning
+          annotations:
+            summary: Fluent Bit output errors detected # 예: 경보에 붙는 설명 한 줄
+        # 장기 지표의 S3 업로드 차단: 장기 지표 sidecar 의 업로드 실패를 보는 규칙 2개입니다. 수집 선언은 gitops/platform/monitoring/values/prod.yaml 의 prometheus.thanosServiceMonitor 가 만듭니다.
+        # Thanos v0.41.0 shipper 는 업로드가 실패하면 그 동기화를 실패로 세고(thanos_shipper_dir_sync_failures_total) 바로 끝내므로 upload_failures 는 늘지 않습니다. 동기화는 30초마다 다시 돕니다.
+        - alert: ThanosSidecarUploadFailing                                              # 예: 닫힌 블록을 S3 에 올리지 못함
+          expr: increase(thanos_shipper_dir_sync_failures_total{namespace="monitoring"}[15m]) > 0 # 예: 최근 15분에 동기화 실패가 하나라도 있으면 참 (복구 뒤 15분까지 남음)
+          for: 5m                                                                        # 예: 5m
+          labels: {severity: warning}                                                    # 예: warning
+          annotations:
+            summary: "{{ $labels.pod }} Thanos sidecar failed to ship blocks to object storage in the last 15 minutes" # 예: 어느 Prometheus Pod 인지 표시
+        - alert: ThanosSidecarMetricsMissing                                             # 예: sidecar 지표 자체가 없음 (없음 ≠ 업로드 정상)
+          expr: absent(thanos_shipper_dir_syncs_total{namespace="monitoring"})           # 예: 수집 선언 · 대상이 사라지면 참
+          for: 15m                                                                       # 예: 15m
+          labels: {severity: warning}                                                    # 예: warning
+          annotations:
+            summary: Thanos sidecar shipper metrics are absent; block upload failures cannot be detected # 예: 이 문장을 그대로 둠

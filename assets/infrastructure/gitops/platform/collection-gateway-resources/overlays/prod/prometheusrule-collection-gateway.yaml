@@ -1,0 +1,35 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: collection-gateway
+  namespace: monitoring
+  labels:
+    release: platform-monitoring
+spec:
+  groups:
+  - name: collection-gateway
+    rules:
+    - alert: CollectionGatewayDropping
+      expr: sum by (exporter) (rate(otelcol_exporter_enqueue_failed_log_records{job="collection-gateway"}[10m]))
+        > 0
+      for: 10m
+      labels:
+        severity: critical
+      annotations:
+        summary: Collection gateway is rejecting log records at the sending queue
+    - alert: CollectionGatewaySendFailing
+      expr: sum by (exporter) (rate(otelcol_exporter_send_failed_log_records{job="collection-gateway"}[10m]))
+        > 0
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: Collection gateway log export keeps failing
+    - alert: CollectionGatewayBelowQuorum
+      expr: kube_deployment_status_replicas_available{namespace="observability",deployment="collection-gateway-opentelemetry-collector"}
+        < 2
+      for: 10m
+      labels:
+        severity: critical
+      annotations:
+        summary: Fewer than two collection gateway replicas are available

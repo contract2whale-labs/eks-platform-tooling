@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: aws-load-balancer-controller-metrics
+  namespace: kube-system
+  labels:
+    platform.example/metrics: lbc
+    app.kubernetes.io/name: aws-load-balancer-controller
+    app.kubernetes.io/instance: aws-load-balancer-controller
+spec:
+  selector:
+    app.kubernetes.io/name: aws-load-balancer-controller
+    app.kubernetes.io/instance: aws-load-balancer-controller
+  ports:
+  - name: metrics-server
+    port: 8080
+    targetPort: metrics-server

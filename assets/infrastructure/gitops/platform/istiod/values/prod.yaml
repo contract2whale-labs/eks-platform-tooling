@@ -1,0 +1,34 @@
+# gitops/platform/istiod/values/prod.yaml
+# 서비스 메시: 컨트롤 플레인(istiod) 설치 값입니다. 신분 발급과 정책 배포만 맡고 Gateway 자원을 만들지 않습니다.
+profile: ambient # 예: ambient (PILOT_ENABLE_AMBIENT · HBONE 을 켜는 chart profile)
+revision: ""     # 예: "" (기본 revision; canary revision 을 쓰지 않음)
+global:
+  istioNamespace: istio-system # 예: istio-system (컨트롤 플레인 네임스페이스)
+  logAsJson: true              # 예: true (컨트롤 플레인 로그를 JSON 으로; 관측 노드 구성 수집 기준)
+  defaultPodDisruptionBudget:
+    enabled: true # 예: true (istiod PDB 를 만들어 자발적 중단에서 1개를 남김)
+meshConfig:
+  trustDomain: cluster.local    # 예: cluster.local (신분 문자열의 앞부분; AuthorizationPolicy principals 와 같은 값)
+  accessLogFile: /dev/stdout    # 예: /dev/stdout (waypoint · sidecar 접근 로그 위치; ztunnel 은 자체 로그)
+  accessLogEncoding: JSON       # 예: JSON (접근 로그 형식)
+  enableTracing: false          # 예: false (트레이스는 관측 노드 구성 에서 결정)
+pilot:
+  autoscaleEnabled: false  # 예: false (HPA 없이 고정 복제본)
+  replicaCount: 2          # 예: 2 (컨트롤 플레인 Pod 2개; 노드 2대에 분산)
+  rollingMaxUnavailable: 0 # 예: 0 (갱신 중에도 준비된 Pod 를 유지)
+  resources:
+    requests: {cpu: 200m, memory: 512Mi} # 예: cpu 200m, memory 512Mi (Pod 1개 기준)
+    limits: {memory: 2Gi}                # 예: memory 2Gi (메모리 상한)
+  nodeSelector:
+    workload: system # 예: system (관련 구성 system 노드 그룹의 label; 관측 · Kafka 노드에는 두지 않음)
+  tolerations: []    # 예: [] (컨트롤 플레인은 taint 가 없는 system 노드에만 배치)
+  # 기본 GatewayClass 이름과 controllerName 을 조직에서 정한 값으로 명시합니다 (Gateway 관련 구성 의 platform · envoyproxy 와 구분).
+  env:
+    PILOT_ENABLE_AMBIENT: "true"                                        # 예: "true" (ambient 데이터 플레인 사용)
+    PILOT_ENABLE_GATEWAY_API: "true"                                    # 예: "true" (Gateway API 자원을 읽음; CRD 가 없으면 건너뜀)
+    PILOT_GATEWAY_API_DEFAULT_GATEWAYCLASS_NAME: "mesh-internal"        # 예: mesh-internal (versions.env MESH_GATEWAY_CLASS_NAME 과 같은 값)
+    PILOT_GATEWAY_API_CONTROLLER_NAME: "istio.io/mesh-gateway-controller" # 예: versions.env MESH_GATEWAY_CONTROLLER_NAME 과 같은 값
+    PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER: "false"             # 예: "false" (Gateway 자원에서 Deployment 를 자동 생성하지 않음; waypoint 미사용)
+    PILOT_ENABLE_GATEWAY_API_STATUS: "false"                            # 예: "false" (Gateway API 객체의 status 를 쓰지 않음; Gateway controller 와 충돌 방지)
+telemetry:
+  enabled: true # 예: true (Telemetry API 를 켬; 수집 대상 연결은 관측 노드 구성)

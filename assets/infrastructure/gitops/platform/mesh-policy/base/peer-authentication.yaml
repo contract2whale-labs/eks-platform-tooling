@@ -1,0 +1,11 @@
+# gitops/platform/mesh-policy/base/peer-authentication.yaml
+# 서비스 메시: 앞 편의 CNI·istiod·ztunnel 준비를 확인한 뒤 정책 Application에서 적용합니다. 허용·거부 연결은 뒤의 같은 실행에서 대조합니다.
+# ambient 는 상호 TLS 를 전제하므로 DISABLE 을 쓰지 않습니다. 정책이 없을 때의 기본값은 PERMISSIVE(평문 · mTLS 둘 다 수신)입니다.
+apiVersion: security.istio.io/v1 # 예: security.istio.io/v1 (Istio 보안 API 의 정식 버전)
+kind: PeerAuthentication         # 예: PeerAuthentication (수신 쪽 TLS 요구 수준을 정하는 객체)
+metadata:
+  name: strict-mtls              # 예: strict-mtls (check-mesh-mtls.sh 의 strict-mode 검사가 찾는 이름)
+  namespace: team-mesh-check     # 예: team-mesh-check (selector 가 없으므로 이 네임스페이스 전체에 적용)
+spec:
+  mtls:
+    mode: STRICT                 # 예: STRICT (평문 수신을 거부; 메시 밖 Pod 의 연결이 닫힘)

@@ -1,0 +1,95 @@
+# gitops/platform/tenant-baseline/overlays/prod/commerce-egress.yaml
+# 나가는 방향만 있습니다. 들어오는 방향(입구 → 두 앱, 스토어프런트 → 백엔드)은 주소가 필요 없어 manifests/10-baseline-network-policy.yaml 에 있습니다.
+# NetworkPolicy 는 주소 · 포트만 열고, 어느 비밀 · 어느 표를 만질 수 있는지는 IAM(Pod Identity 재사용 모듈) 과 SQL 권한(데이터베이스 초기화) 이 정합니다.
+apiVersion: networking.k8s.io/v1                      # 예: networking.k8s.io/v1
+kind: NetworkPolicy                                   # 예: NetworkPolicy
+metadata:
+  name: allow-database-egress                         # 예: allow-database-egress
+  namespace: contract2whale-demo                            # 예: contract2whale-demo (data-contract.env 의 DATA_NAMESPACE)
+  labels:
+    app.kubernetes.io/part-of: contract2whale            # 예: contract2whale
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name                   # 예: 이름 label 로 데이터베이스에 닿는 Pod 만
+        operator: In
+        values: [commerce-api, commerce-api-migrate, database-bootstrap, database-operator-check] # 예: 백엔드 · 마이그레이션(Argo CD PreSync Job) · 초기화 · 진단. 스토어프런트는 없습니다 — DB 를 직접 부르지 않습니다.
+  policyTypes: [Egress]                               # 예: [Egress]
+  egress:
+    - to:
+        - ipBlock: {cidr: 10.70.48.0/24}
+      ports:
+        - {protocol: TCP, port: 5432}                 # 예: PostgreSQL (DB Security Group 은 노드 SG 만 허용 — 두 번째 경계)
+---
+# 캐시 송신입니다: ElastiCache(Valkey)의 서브넷 주소로 6379 만. Medusa 의 event bus · workflow engine · locking · cache 모듈이 같은 주소를 씁니다.
+# 마이그레이션 Job 도 같은 medusa-config.ts 를 읽어 기동하면서 네 모듈을 붙이므로, 이 정책의 대상에 commerce-api-migrate 가 함께 들어갑니다 (없으면 db:migrate 가 캐시 연결에서 멈춥니다).
+apiVersion: networking.k8s.io/v1                      # 예: networking.k8s.io/v1
+kind: NetworkPolicy                                   # 예: NetworkPolicy
+metadata:
+  name: allow-cache-egress                            # 예: allow-cache-egress
+  namespace: contract2whale-demo                            # 예: contract2whale-demo
+  labels:
+    app.kubernetes.io/part-of: contract2whale            # 예: contract2whale
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name                   # 예: 캐시에 닿는 Pod 만
+        operator: In
+        values: [commerce-api, commerce-api-migrate]  # 예: 백엔드 · 마이그레이션(Argo CD PreSync Job). 초기화 · 진단 Job 은 캐시를 쓰지 않습니다.
+  policyTypes: [Egress]                               # 예: [Egress]
+  egress:
+    - to:
+        - ipBlock: {cidr: 10.70.50.0/24}
+      ports:
+        - {protocol: TCP, port: 6379}                 # 예: Valkey · Redis 프로토콜 포트
+---
+# AWS API 송신입니다: VPC 인터페이스 엔드포인트(ENI 주소 — Secrets Manager · STS 포함)와 S3 게이트웨이 엔드포인트(리전 접두사 목록)로 443 만. 공인 주소 · NAT 로 나가지 않습니다.
+# 자격 증명은 노드마다 같은 주소(169.254.170.23)의 Pod Identity 에이전트가 80 으로 줍니다. 이 정책이 고른 Pod 는 적힌 목적지로만 나갈 수 있으므로 에이전트 주소도 적습니다.
+apiVersion: networking.k8s.io/v1                      # 예: networking.k8s.io/v1
+kind: NetworkPolicy                                   # 예: NetworkPolicy
+metadata:
+  name: allow-aws-endpoint-egress                     # 예: allow-aws-endpoint-egress
+  namespace: contract2whale-demo                            # 예: contract2whale-demo
+  labels:
+    app.kubernetes.io/part-of: contract2whale            # 예: contract2whale
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name                   # 예: AWS API 를 부르는 Pod 만 (스토어프런트는 부르지 않음)
+        operator: In
+        values: [commerce-api, commerce-api-migrate, database-bootstrap, database-operator-check]
+  policyTypes: [Egress]                               # 예: [Egress]
+  egress:
+    - to:
+        - ipBlock: {cidr: 10.70.16.0/24}
+      ports:
+        - {protocol: TCP, port: 443}                  # 예: Secrets Manager · STS (인터페이스 엔드포인트 ENI)
+    - to:
+        - ipBlock: {cidr: 52.92.0.0/15}
+      ports:
+        - {protocol: TCP, port: 443}                  # 예: S3 (상품 이미지 등 미디어 객체)
+    - to:
+        - {ipBlock: {cidr: 169.254.170.23/32}}        # 예: EKS Pod Identity 에이전트 (링크 로컬 주소; input.env 의 CIDR 목록이 아니라 고정값)
+      ports:
+        - {protocol: TCP, port: 80}                   # 예: 에이전트 포트 (자격 증명 요청)
+---
+# 스토어프런트 → 백엔드 송신입니다. 주소가 아니라 label 로 고르므로 CIDR 이 필요 없지만, 두 앱 사이의 유일한 통로라서 다른 송신 규칙과 같은 파일에 둡니다.
+# 짝이 되는 수신(백엔드가 스토어프런트에서 받는 규칙)은 manifests/10-baseline-network-policy.yaml 의 allow-storefront-ingress 입니다 — 둘 다 있어야 통신이 됩니다.
+apiVersion: networking.k8s.io/v1                      # 예: networking.k8s.io/v1
+kind: NetworkPolicy                                   # 예: NetworkPolicy
+metadata:
+  name: allow-storefront-egress                       # 예: allow-storefront-egress
+  namespace: contract2whale-demo                            # 예: contract2whale-demo
+  labels:
+    app.kubernetes.io/part-of: contract2whale            # 예: contract2whale
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: commerce-web} # 예: 스토어프런트 Pod 만
+  policyTypes: [Egress]                               # 예: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: commerce-api} # 예: 같은 네임스페이스의 백엔드 Pod (namespaceSelector 를 적지 않으면 자기 네임스페이스)
+      ports:
+        - {protocol: TCP, port: 9000}                 # 예: Store API (서버 측 호출)
+        - {protocol: TCP, port: 15008}                # 예: HBONE (ambient 메시 터널 — 서비스 메시)

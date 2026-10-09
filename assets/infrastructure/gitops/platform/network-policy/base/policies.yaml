@@ -1,0 +1,60 @@
+# platform/environments/dev/core/manifests/20-network-policy.yaml
+# 클러스터 공통 서비스: Namespace 의 모든 Pod 를 양방향 격리합니다. CNI 의 실제 강제(vpc-cni enableNetworkPolicy=true, 관련 구성)가 먼저 켜져 있어야 합니다.
+apiVersion: networking.k8s.io/v1 # 예: networking.k8s.io/v1 (NetworkPolicy 의 API 그룹과 버전)
+kind: NetworkPolicy              # 예: NetworkPolicy (Pod 통신 경계를 선언하는 객체)
+metadata:
+  name: default-deny             # 예: default-deny (기본 차단을 만드는 정책 이름)
+  namespace: team-platform-check # 예: team-platform-check (정책이 동작할 namespace)
+spec:
+  podSelector: {}                # 예: {} (이 namespace 의 모든 Pod 를 고름)
+  policyTypes: [Ingress, Egress] # 예: [Ingress, Egress] (수신과 송신 두 방향을 고름)
+---
+# DNS 만 기본 허용합니다. 같은 peer 항목의 namespaceSelector 와 podSelector 는 AND 입니다.
+apiVersion: networking.k8s.io/v1 # 예: networking.k8s.io/v1 (API 그룹과 버전)
+kind: NetworkPolicy              # 예: NetworkPolicy (통신 경계 객체)
+metadata:
+  name: allow-dns                # 예: allow-dns (이름 해석만 여는 정책 이름)
+  namespace: team-platform-check # 예: team-platform-check (정책이 동작할 namespace)
+spec:
+  podSelector: {}                # 예: {} (이 namespace 의 모든 Pod 에 적용)
+  policyTypes: [Egress]          # 예: [Egress] (송신 방향만 고름)
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system} # 예: kube-system (DNS Pod 가 있는 namespace)
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}                        # 예: k8s-app: kube-dns (CoreDNS Pod 의 label)
+      ports:
+        - {protocol: UDP, port: 53} # 예: UDP 53 (일반 이름 해석 질의)
+        - {protocol: TCP, port: 53} # 예: TCP 53 (응답이 크거나 재시도할 때)
+---
+# 확인용 client Deployment 에서 server Deployment 의 8080 만 허용합니다.
+apiVersion: networking.k8s.io/v1   # 예: networking.k8s.io/v1 (API 그룹과 버전)
+kind: NetworkPolicy                # 예: NetworkPolicy (통신 경계 객체)
+metadata:
+  name: allow-check-client-to-server # 예: allow-check-client-to-server (수신을 여는 정책 이름)
+  namespace: team-platform-check     # 예: team-platform-check (정책이 동작할 namespace)
+spec:
+  podSelector:
+    matchLabels: {app: policy-server} # 예: app: policy-server (수신을 열 목적지 Pod)
+  policyTypes: [Ingress]              # 예: [Ingress] (수신 방향만 고름)
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app: policy-client} # 예: app: policy-client (허용할 출발지 Pod)
+      ports: [{protocol: TCP, port: 8080}]    # 예: TCP 8080 (검사용 HTTP 포트)
+---
+apiVersion: networking.k8s.io/v1 # 예: networking.k8s.io/v1 (API 그룹과 버전)
+kind: NetworkPolicy              # 예: NetworkPolicy (통신 경계 객체)
+metadata:
+  name: allow-check-client-egress # 예: allow-check-client-egress (송신을 여는 정책 이름)
+  namespace: team-platform-check  # 예: team-platform-check (정책이 동작할 namespace)
+spec:
+  podSelector:
+    matchLabels: {app: policy-client} # 예: app: policy-client (송신을 열 출발지 Pod)
+  policyTypes: [Egress]               # 예: [Egress] (송신 방향만 고름)
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {app: policy-server} # 예: app: policy-server (허용할 목적지 Pod)
+      ports: [{protocol: TCP, port: 8080}]    # 예: TCP 8080 (허용 검사와 같은 포트)

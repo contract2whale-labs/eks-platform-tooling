@@ -1,0 +1,31 @@
+# gitops/platform/monitoring-resources/overlays/prod/tempo-monitors.yaml
+# 트레이스 소비자의 지연 재현: block-builder · live-store 규칙이 세대 1 이름(platform-tempo-…)에만 걸려 세대 2 · 3 이 활성일 때 같은 장애에 울리지 않던 결함을 고쳤습니다 — 선택자가 설치된 모든 세대(platform-tempo · platform-tempo-e2 · platform-tempo-e3)를 보고, 어느 세대인지는 statefulset label 로 알립니다.
+apiVersion: monitoring.coreos.com/v1 # 예: monitoring.coreos.com/v1
+kind: PrometheusRule                 # 예: PrometheusRule
+metadata:
+  name: platform-tempo               # 예: platform-tempo
+  namespace: monitoring              # 예: monitoring
+  labels:
+    release: platform-monitoring     # 예: platform-monitoring (ruleSelector)
+spec:
+  groups:
+    - name: platform-tempo           # 예: 룰 그룹
+      rules:
+        - alert: TempoDistributorDiscardingSpans # 예: span 을 버리는 상태 (수신 한도 · 잘못된 trace · span ID · trace 크기 한도 — Kafka 쓰기 실패는 이 지표에 세지 않음, distributor 로그 failed to write to kafka 로 봄)
+          expr: sum by (reason) (rate(tempo_discarded_spans_total{namespace="monitoring"}[10m])) > 0
+          for: 10m                   # 예: 10m
+          labels: {severity: critical} # 예: critical
+          annotations:
+            summary: Tempo distributor is discarding spans # 예: 사람이 읽는 한 줄
+        - alert: TempoBlockBuilderNotConsuming # 예: 설치된 세대 중 block-builder Ready 대수가 파티션 수 3 보다 작은 세대 (세 세대 모두 토픽 파티션 3 — 운영 토픽의 실제 partition 수와 대조)
+          expr: kube_statefulset_status_replicas_ready{namespace="monitoring",statefulset=~"platform-tempo(-e[0-9]+)?-block-builder"} < 3
+          for: 15m                   # 예: 15m
+          labels: {severity: critical} # 예: critical
+          annotations:
+            summary: "{{ $labels.statefulset }} has fewer than three ready block-builders; check Kafka consumption and S3 flush" # 예: 어느 세대인지 label 로 표시
+        - alert: TempoLiveStoreZoneDown # 예: zone 하나의 live-store 가 모두 준비되지 않은 상태 (최근 조회는 다른 zone 이 답함)
+          expr: kube_statefulset_status_replicas_ready{namespace="monitoring",statefulset=~"platform-tempo(-e[0-9]+)?-live-store-zone-.*"} == 0 # 예: 세대 2 · 3 의 zone 도 포함
+          for: 10m                   # 예: 10m
+          labels: {severity: warning} # 예: warning
+          annotations:
+            summary: "{{ $labels.statefulset }} has no ready replica" # 예: 어느 세대 · zone 인지 label 로 표시

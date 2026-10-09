@@ -1,0 +1,20 @@
+# terraform.tfvars.example — dev account-baseline 루트 모듈
+# terraform.tfvars 로 복사한 뒤 계정 ID · 버킷 · 운영자 역할 ARN 을 work/lab.env 의 값으로 바꿉니다. terraform.tfvars 는 커밋하지 않습니다.
+
+expected_account_id = "111111111111"                     # 예: work/lab.env 의 DEV_ACCOUNT_ID (12자리)
+region              = "ap-northeast-2"                   # 예: "ap-northeast-2" (work/lab.env 의 AWS_REGION)
+environment         = "dev"                              # 예: "dev" (역할 이름이 cp-dev-terraform-state 가 됩니다)
+state_bucket_name   = "company-dev-tfstate-111111111111" # 예: work/lab.env 의 DEV_STATE_BUCKET (backend.hcl 의 bucket 과 같은 값)
+
+# 02-AWS-SETUP 13절에서 확인한 같은 계정의 영구 IAM 역할 ARN 입니다 (work/lab.env 의 DEV_OPERATOR_ROLE_ARN).
+# Identity Center 역할은 경로에 aws-reserved/sso.amazonaws.com 이 포함될 수 있습니다.
+trusted_principal_arns = ["arn:aws:iam::111111111111:role/aws-reserved/sso.amazonaws.com/ap-northeast-2/AWSReservedSSO_InfrastructureProvisioner_0123456789abcdef"]
+
+# 아래 세 값은 기본값을 유지합니다. 조직 정책상 boundary 가 필수이면 승인된 policy ARN 을 넣습니다.
+additional_state_object_keys = []    # 예: [] (후속 루트 모듈 key 는 해당 챕터에서 정확한 경로로 추가)
+permissions_boundary_arn     = null  # 예: null (미부착) / "arn:aws:iam::111111111111:policy/PlatformBoundary"
+manage_iam_password_policy   = false # 예: false (계정 전역 암호 정책 소유권을 인수하지 않음)
+
+# account 에서 github-identity.tf 를 추가한 뒤 aws iam list-open-id-connect-providers 결과로 정합니다 (T1~T4 시점에는 두 줄을 넣지 않습니다).
+create_github_oidc                = true # 예: true (GitHub provider 가 없는 신규 계정) / false (다른 소유자가 이미 만든 계정)
+existing_github_oidc_provider_arn = null # 예: null (신규 생성) / "arn:aws:iam::111111111111:oidc-provider/token.actions.githubusercontent.com" (기존 재사용)

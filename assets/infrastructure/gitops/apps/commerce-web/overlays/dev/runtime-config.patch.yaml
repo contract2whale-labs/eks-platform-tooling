@@ -1,0 +1,5 @@
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: MEDUSA_BACKEND_URL
+    value: http://commerce-api.contract2whale-demo.svc.cluster.local:9000

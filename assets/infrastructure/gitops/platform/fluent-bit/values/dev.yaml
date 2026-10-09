@@ -1,0 +1,74 @@
+# gitops/platform/fluent-bit/values/dev.yaml
+# 핵심: Exclude_Path 가 앱 네임스페이스(contract2whale-demo) 파일을 열지 않습니다 — 앱 로그는 관측 파이프라인 수집 경로로 가며, 두 곳에 쌓이면 비용과 판정 근거가 갈립니다 (계정 이벤트 경보 모듈 지표 필터의 전제).
+kind: DaemonSet                          # 예: DaemonSet (노드마다 한 대씩 띄웁니다)
+serviceAccount:
+  create: true                           # 예: true (chart 가 ServiceAccount 를 만듭니다)
+  name: fluent-bit                       # 예: fluent-bit (Pod Identity 연결의 service_account 와 같은 이름; annotation 없음)
+tolerations:
+  # 예: 뒤 챕터(관측 파이프라인 · 메시지 큐 전환)의 전용 노드 taint 가 있어도 플랫폼 로그를 읽습니다.
+  - operator: Exists
+image: {tag: 5.1.1}                      # 예: 5.1.1 (고정한 Fluent Bit 버전; versions.env FLUENT_BIT_IMAGE_TAG)
+testFramework: {enabled: false}          # 예: false (시험용 Pod 를 만들지 않습니다)
+resources:
+  requests: {cpu: 50m, memory: 128Mi}    # 예: cpu 50m, memory 128Mi (배치에 쓰는 요청량; 노드마다)
+  limits: {memory: 256Mi}                # 예: memory 256Mi (메모리 상한)
+serviceMonitor:
+  enabled: false
+  selector: {release: platform-monitoring} # 예: release=platform-monitoring (수집 도구가 고르는 표시)
+# 노드의 컨테이너 로그는 읽기 전용으로 붙이고, 읽은 위치 기록과 재시도 버퍼는 별도 hostPath 에 씁니다 (logging 네임스페이스이 privileged 인 이유).
+daemonSetVolumes:
+  - name: varlog                         # 예: varlog (노드 로그 디렉터리 볼륨 이름)
+    hostPath: {path: /var/log}           # 예: /var/log (노드의 로그 디렉터리)
+  - name: buffer                         # 예: buffer (버퍼 볼륨 이름)
+    hostPath: {path: /var/lib/fluent-bit-platform, type: DirectoryOrCreate} # 예: 없으면 만듭니다
+daemonSetVolumeMounts:
+  - name: varlog                         # 예: varlog (위에서 선언한 볼륨)
+    mountPath: /var/log                  # 예: /var/log (컨테이너 안에서 보이는 경로)
+    readOnly: true                       # 예: true (노드 로그를 고치지 않습니다)
+  - name: buffer                         # 예: buffer (위에서 선언한 볼륨)
+    mountPath: /buffers                  # 예: /buffers (컨테이너 안에서 보이는 경로)
+config:
+  service: |
+    [SERVICE]
+        Flush 5
+        Log_Level info
+        Parsers_File /fluent-bit/etc/parsers.conf
+        HTTP_Server On
+        HTTP_Listen 0.0.0.0
+        HTTP_Port 2020
+        Health_Check On
+        storage.path /buffers/storage
+  inputs: |
+    [INPUT]
+        Name tail
+        Path /var/log/containers/*.log
+        Exclude_Path /var/log/containers/*_contract2whale-demo_*.log
+        Tag kube.*
+        multiline.parser cri
+        DB /buffers/tail.db
+        Skip_Long_Lines On
+        Read_from_Head Off
+        storage.type filesystem
+  filters: |
+    [FILTER]
+        Name kubernetes
+        Match kube.*
+        Kube_Tag_Prefix kube.var.log.containers.
+        Merge_Log On
+        Keep_Log On
+        Labels Off
+        Annotations Off
+  outputs: |
+    [OUTPUT]
+        Name cloudwatch_logs
+        Match kube.*
+        region ap-northeast-2
+        log_group_name /platform/contract2whale-dev-eks/application
+        log_stream_prefix nodes-
+        auto_create_group false
+        Retry_Limit no_limits
+        storage.total_limit_size 1G
+# config 블록 항목의 뜻 — [SERVICE] Flush 5(초마다 내보냄) · Health_Check On(상태 확인 경로) · storage.path(파일 버퍼);
+# [INPUT] tail 의 Path(컨테이너 로그) · Exclude_Path(앱 네임스페이스 제외) · multiline.parser cri(런타임 여러 줄 형식) · DB(읽은 위치) · Read_from_Head Off(기존 파일을 처음부터 읽지 않음);
+# [FILTER] kubernetes 의 Merge_Log On(줄 안 JSON 을 필드로 펼침 — 지표 필터가 $.kubernetes.* · $.stream 을 읽는 근거) · Keep_Log On(원래 줄도 남김);
+# [OUTPUT] cloudwatch_logs 의 log_group_name(계약의 platform_log_group_name) · log_stream_prefix nodes- · auto_create_group false(그룹은 Terraform 소유) · Retry_Limit no_limits · storage.total_limit_size 1G(파일 큐 상한).

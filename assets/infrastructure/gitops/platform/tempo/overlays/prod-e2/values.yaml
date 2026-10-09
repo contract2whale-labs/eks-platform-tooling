@@ -1,0 +1,145 @@
+# gitops/platform/tempo/overlays/prod-e2/values.yaml
+# 병렬 설정과 연결 시험: 관리형 큐(MSK)에서 읽고 쓰는 병렬 Tempo release(epoch 2) 의 값입니다. 트레이스 파이프라인 연결 의 tempo-values.yaml(epoch 1, 자체 구축 큐) 파일은 그대로 두고 이 파일만 새로 둡니다.
+fullnameOverride: platform-tempo-e2 # 예: platform-tempo-e2 (Service 이름 앞부분)
+reportingEnabled: false                   # 예: false (밖으로 나가는 사용량 보고 없음)
+
+tempo:
+  image:
+    repository: grafana/tempo                   # 예: grafana/tempo (공식 이미지 저장소)
+    tag: "main-6047d8b-1995-1"        # 예: main-6047d8b-1995-1 (Kafka SASL 메커니즘 · TLS 를 지원하는 버전; 3.0.3 에는 sasl_mechanism · tls_enabled 설정이 없음)
+  # chart 는 ingest.kafka 의 주소 · 토픽 · 자동 생성만 렌더합니다. 인증 · 암호화 네 키는 structuredConfig 로 덮어 씁니다.
+  structuredConfig:
+    ingest:
+      kafka:
+        auto_create_topic_enabled: false   # 예: false (토픽은 setup-managed-topics.sh 가 미리 만듦; 브로커 구성도 auto.create=false)
+        sasl_mechanism: SCRAM-SHA-512      # 예: SCRAM-SHA-512 (MSK 의 사용자 인증 방식; 자체 구축 경로의 무인증 평문과 다름)
+        sasl_username: ${QUEUE_USERNAME}   # 예: Secret 의 환경 변수 (distributor 는 쓰는 사용자, 나머지는 읽는 사용자)
+        sasl_password: ${QUEUE_PASSWORD}   # 예: Secret 의 환경 변수 (값은 저장소 · 값 파일 어디에도 적지 않음)
+        tls_enabled: true                  # 예: true (9096 은 TLS 위의 SASL; 인증서는 이미지의 공개 루트로 검증)
+
+# 모든 Pod 에 같은 실행 인자와 자격 증명 환경을 넣습니다 (block-builder · live-store · backend-* 포함 — 렌더 실측).
+global:
+  extraArgs:
+    - "-config.expand-env=true" # 예: 설정의 ${…} 를 환경 변수로 채움 (비밀번호를 파일에 적지 않기 위한 전제)
+  extraEnvFrom:
+    - secretRef:
+        name: queue-managed-e2-reader # 예: queue-managed-e2-reader (읽는 쪽 기본값; copy-queue-credentials.sh 가 만듦)
+
+# 모든 Tempo Pod 의 공통 배치 값: 관측 노드(관측 노드 그룹과 taint)에만, taint 를 견딤.
+defaults:
+  nodeSelector: {workload: observability} # 예: workload=observability
+  tolerations:
+    - {key: workload, operator: Equal, value: observability, effect: NoSchedule} # 예: 관측 노드의 taint
+
+serviceAccount:
+  create: false                       # 예: false (관측 파이프라인 manifests/70-tempo-identities.yaml 이 이미 만듦)
+  name: platform-tempo                # 예: platform-tempo (S3 를 쓰지 않는 구성 요소용)
+  automountServiceAccountToken: false # 예: false
+
+ingest:
+  kafka:
+    address: example-msk-bootstrap.kafka.ap-northeast-2.amazonaws.com:9096      # 예: b-1…:9096,b-2…:9096 (계약 bootstrap_brokers_scram; TLS + SASL/SCRAM 리스너)
+    topic: platform-traces-e2                  # 예: prod-tempo-traces-epoch-2 (epoch 1 의 platform-traces 와 다른 offset 공간)
+    auto_create_topic_enabled: false        # 예: false
+    auto_create_topic_default_partitions: 3 # 예: 3 (= blockBuilder.replicas = liveStore.replicas)
+
+traces:
+  otlp:
+    grpc: {enabled: true}  # 예: true (distributor 4317; 전환 뒤 게이트웨이가 여기로 보냄)
+    http: {enabled: true}  # 예: true (4318; 전환 전 직접 시험용 — trace-probe.sh send 가 distributor 에 바로 보냄; ClusterIP 뿐)
+
+distributor:
+  replicas: 2 # 예: 2 (epoch 1 과 같은 대수)
+  resources:
+    requests: {cpu: 100m, memory: 256Mi} # 예: 요청량
+    limits: {memory: 512Mi}              # 예: 상한
+  # 쓰는 쪽만 쓰기 사용자로 바꿉니다. 같은 이름의 환경 변수는 뒤 항목이 이깁니다 (렌더 실측: envFrom 순서 reader → writer).
+  extraEnvFrom:
+    - secretRef:
+        name: queue-managed-e2-writer # 예: queue-managed-e2-writer
+
+blockBuilder:
+  enabled: true # 예: true
+  replicas: 3 # 예: 3 (= 파티션 수)
+  resources:
+    requests: {cpu: 200m, memory: 512Mi} # 예: 요청량
+    limits: {memory: 1Gi}                # 예: 상한
+
+liveStore:
+  enabled: true # 예: true
+  replicas: 3 # 예: 3 (zone 하나의 크기 = 파티션 수)
+  resources:
+    requests: {cpu: 100m, memory: 384Mi} # 예: 요청량 (9대 = 0.9 vCPU · 3.4 GiB)
+    limits: {memory: 768Mi}              # 예: 상한
+  zoneAwareReplication:
+    enabled: true                            # 예: true (zone 마다 StatefulSet)
+    topologyKey: topology.kubernetes.io/zone # 예: AZ 키
+    rolloutOperatorManagedExternally: false  # Prod 첫 Tempo release가 rollout-operator를 설치합니다. Dev epoch 1은 Prod에 없습니다.
+    zones:
+      - name: zone-a
+        nodeSelector: {topology.kubernetes.io/zone: ap-northeast-2a} # 예: ap-northeast-2a 의 관측 노드
+      - name: zone-b
+        nodeSelector: {topology.kubernetes.io/zone: ap-northeast-2b} # 예: ap-northeast-2b
+      - name: zone-c
+        nodeSelector: {topology.kubernetes.io/zone: ap-northeast-2c} # 예: ap-northeast-2c
+rollout_operator:
+  enabled: true # Prod 첫 설치가 관리합니다. 후속 Tempo release는 이 operator를 재설치하지 않습니다.
+
+backendScheduler:
+  enabled: true # 예: true
+  config:
+    provider:
+      compaction:
+        compaction:
+          block_retention: 720h         # 예: 720h = 30일 (S3 수명 주기 40일보다 짧아야 함)
+          compacted_block_retention: 1h # 예: 1h
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {memory: 512Mi}
+backendWorker:
+  replicas: 1
+  resources:
+    requests: {cpu: 200m, memory: 512Mi}
+    limits: {memory: 1Gi}
+
+querier:
+  replicas: 1
+  resources:
+    requests: {cpu: 200m, memory: 512Mi}
+    limits: {memory: 1Gi}
+queryFrontend:
+  replicas: 1 # 예: 1 (전환 뒤 platform-tempo-active-query Service 가 이 Pod 를 고름)
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {memory: 512Mi}
+
+metricsGenerator:
+  enabled: false # 예: false (실습 규모)
+
+memcached: {enabled: false}               # 예: false
+memcachedExporter: {enabled: false}       # 예: false
+memcachedBloom: {enabled: false}          # 예: false
+memcachedParquetFooter: {enabled: false}  # 예: false
+memcachedFrontendSearch: {enabled: false} # 예: false
+cache:
+  caches: [] # 예: [] (캐시 없음)
+
+# 장기 저장: 같은 버킷 · 같은 prod/ 접두사 아래의 새 경로입니다 (epoch 1 의 prod/traces 객체를 건드리지 않음).
+storage:
+  trace:
+    backend: s3
+    s3:
+      bucket: example-prod-traces-bucket            # 예: cp-prod-observability-traces-<계정>-ap-northeast-2
+      prefix: prod/traces-epoch-2    # 예: prod/traces-epoch-2 (역할 · 버킷 정책의 prod/* 안, 수명 주기 40일 대상)
+      region: ap-northeast-2                   # 예: ap-northeast-2
+      endpoint: s3.ap-northeast-2.amazonaws.com # 예: s3.ap-northeast-2.amazonaws.com (VPC Gateway 엔드포인트 경로)
+      forcepathstyle: false # 예: false
+
+metaMonitoring:
+  serviceMonitor:
+    enabled: true                          # 예: true (구성 요소마다 ServiceMonitor)
+    labels: {release: platform-monitoring} # 예: platform-monitoring (serviceMonitorSelector)
+    interval: 30s
+
+server:
+  logLevel: info # 예: info

@@ -1,0 +1,10 @@
+# terraform.tfvars.example — dev platform/dev-app-access 루트 모듈
+# terraform.tfvars 로 복사한 뒤 expected_account_id · state_bucket_name 을 work/lab.env 의 DEV_ACCOUNT_ID · DEV_STATE_BUCKET 으로, approved_identity_center_role_arn 을 Dev 계정의 개발자 Permission Set Role ARN 으로 바꿉니다.
+# terraform.tfvars 는 커밋하지 않습니다. 인스턴스 ID · SG ID · NLB DNS 는 입력하지 않습니다 (remote-state.tf 와 data.aws_lb 조회).
+
+expected_account_id               = "111111111111"                     # 예: 12자리 AWS 계정 번호 (DEV_ACCOUNT_ID)
+region                            = "ap-northeast-2"                   # 예: "ap-northeast-2"
+environment                       = "dev"                              # 예: "dev"
+state_bucket_name                 = "company-dev-tfstate-111111111111" # 예: Dev State 버킷 (DEV_STATE_BUCKET)
+approved_identity_center_role_arn = "arn:aws:iam::111111111111:role/aws-reserved/sso.amazonaws.com/ap-northeast-2/AWSReservedSSO_CommerceDeveloper_0123456789abcdef" # 예: aws iam list-roles --path-prefix /aws-reserved/sso.amazonaws.com/ 로 확인한 실제 ARN
+local_port                        = 8443                               # 예: 8443 (브라우저 URL https://dev.<PARENT_DOMAIN>:8443/)

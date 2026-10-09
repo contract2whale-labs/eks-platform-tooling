@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# operations/tests/fake/aws — check-autoscaler-ready.test.sh 용 가짜 AWS CLI (읽기 4종). 응답은 $FAKE_DIR 의 JSON 파일, 실패 주입은 FAKE_FAIL=<명령 이름>
+set -u
+printf 'aws %s\n' "$*" >> "$FAKE_LOG"
+case "$*" in
+  *"sts get-caller-identity"*) [ "${FAKE_FAIL:-}" = sts ] && exit 254; cat "$FAKE_DIR/account.txt" ;;
+  *"eks describe-nodegroup"*) [ "${FAKE_FAIL:-}" = nodegroup ] && { echo 'An error occurred (ResourceNotFoundException)' >&2; exit 254; }; cat "$FAKE_DIR/nodegroup.json" ;;
+  *"autoscaling describe-auto-scaling-groups"*) [ "${FAKE_FAIL:-}" = asg ] && exit 254; cat "$FAKE_DIR/asg.json" ;;
+  *"autoscaling describe-scaling-activities"*) [ "${FAKE_FAIL:-}" = activities ] && exit 254; cat "$FAKE_DIR/activities.json" ;;
+  *) echo "fake aws: unexpected: $*" >&2; exit 2 ;;
+esac

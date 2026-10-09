@@ -1,0 +1,10 @@
+# gitops/platform/external-dns/values/prod-infrastructure.yaml
+# Gateway와 인증서의 native 선언: external-dns-values.yaml 뒤에 적용하는 두 번째 values 파일입니다. zone 하나에만 쓰도록 필터 두 개를 겹칩니다.
+domainFilters: ["prod.playdevops.click"] # 예: prod.playdevops.click (이 zone 아래 이름만)
+txtOwnerId: contract2whale-prod-eks         # 예: contract2whale-prod-eks (소유권 TXT 의 owner 값)
+env:
+  - name: AWS_REGION
+    value: ap-northeast-2 # 예: ap-northeast-2
+extraArgs:
+  - --zone-id-filter=Z0123456789EXAMPLE   # 예: --zone-id-filter=Z0PRIVATE00000000000 (같은 이름의 두 zone 중 하나로 고정)
+  - --aws-zone-type=private # 예: --aws-zone-type=private (internal) · public (public)

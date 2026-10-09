@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: platform-thanos-storegateway
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: platform-thanos
+    app.kubernetes.io/component: storegateway
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: false
+  selector:
+    app.kubernetes.io/name: platform-thanos
+    app.kubernetes.io/component: storegateway
+  ports:
+  - name: grpc
+    port: 10901
+    targetPort: grpc
+  - name: http
+    port: 10902
+    targetPort: http

@@ -1,0 +1,27 @@
+# gitops/platform/values/argo-rollouts.yaml
+# 플러그인 바이너리는 릴리스 파일 + sha256 으로 고정합니다 (노드 아키텍처 x86_64 — 노드와 Add-on m7i). HTTPRoute 를 고칠 RBAC 는 gitops/platform/base/clusterrole-argo-rollouts-gateway-api.yaml · clusterrolebinding-argo-rollouts-gateway-api.yaml 이 더합니다. 대시보드 서버는 배포하지 않습니다 (kubectl argo rollouts get rollout --watch 가 같은 화면).
+installCRDs: true                      # 예: true (Rollout · AnalysisTemplate · AnalysisRun · Experiment CRD)
+keepCRDs: false                        # 예: false (uninstall 때 CRD 도 삭제)
+createClusterAggregateRoles: true      # 예: true (view · edit · admin 집계 역할 — Argo CD 가 Rollout 을 관리하려면 필요)
+controller:
+  replicas: 1                          # 예: 1 (chart 기본 2 — 클러스터 1개 · 앱 1개 규모; leader election 은 켜져 있음)
+  nodeSelector: {workload: system}     # 예: system 노드 그룹
+  resources:
+    requests: {cpu: 100m, memory: 128Mi} # 예: 100m · 128Mi (용량 표)
+    limits: {memory: 256Mi}            # 예: 256Mi
+  metrics:
+    enabled: true                      # 예: true (8090 /metrics Service — 수집 여부는 앱 모니터링 설정에서 정함)
+    serviceMonitor:
+      enabled: false                   # 예: false (chart 가 ServiceMonitor 를 만들지 않음)
+  trafficRouterPlugins:                # 예: argo-rollouts-config ConfigMap 의 trafficRouterPlugins (controller 가 기동 시 내려받아 sha256 대조)
+    - name: argoproj-labs/gatewayAPI
+      location: https://github.com/argoproj-labs/rollouts-plugin-trafficrouter-gatewayapi/releases/download/v0.17.0/gatewayapi-plugin-linux-amd64 # 예: v0.17.0 (2026-09-01 릴리스)
+      sha256: 1904ca787d33107c140521899d61fff030ee75d99908bd175fca5a4647759061 # 예: linux-amd64 바이너리의 SHA-256 (_qa/verified-refs.md)
+  containerSecurityContext:
+    runAsNonRoot: true                 # 예: true (restricted PSA)
+    allowPrivilegeEscalation: false    # 예: false
+    readOnlyRootFilesystem: false      # 예: false (플러그인 바이너리를 컨테이너 파일시스템에 내려받음 — emptyDir 대신 기본 경로 사용)
+    capabilities: {drop: [ALL]}        # 예: 모든 capability 제거
+    seccompProfile: {type: RuntimeDefault} # 예: RuntimeDefault
+dashboard:
+  enabled: false                       # 예: false (대시보드 서버 없음 — 공격 표면 · 운영 오버헤드 축소)

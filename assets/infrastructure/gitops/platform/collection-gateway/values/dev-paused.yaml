@@ -1,0 +1,9 @@
+# gitops/platform/collection-gateway/values/dev-paused.yaml
+# 비우기와 전환: 수집 게이트웨이의 트레이스 경로를 끕니다 (유입 중단). gitops/platform/collection-gateway/values/dev.yaml 뒤에 이 파일만 겹치면 트레이스를 뺀 나머지 경로(로그 · 지표)만 남습니다.
+# 원본 switch_files.py 가 만들던 gateway-paused.yaml 의 정적 버전입니다. 로그 · 지표 파이프라인의 구성은 유지합니다. 실제 수집 지속 여부는 현재 Pod와 최근 표본으로 확인합니다.
+# exporter 는 여기서 지우지 않습니다 — 이 파일은 dev-traces.yaml 없이 겹치므로 otlp/traces exporter 가 애초에 없고, chart 0.173.1 은 config.exporters 의 값이 null 이면 렌더를 멈춥니다 (wrong type for value; expected map[string]interface {}).
+# 적용: platform-collection-gateway-dev의 승인한 sources[0].helm.valueFiles를 dev.yaml + dev-paused.yaml로 변경하고, 고정 chart와 승인 Git revision을 수동 동기화합니다.
+config:
+  service:
+    pipelines:
+      traces: null # 예: null (chart 기본 traces 파이프라인 제거; 파이프라인이 없으면 수신부의 트레이스는 버려짐 — 기존 큐의 모든 트레이스가 종료 전에 전송된다는 보장은 없음; 실제 유입 중단과 배출 결과를 별도 확인)

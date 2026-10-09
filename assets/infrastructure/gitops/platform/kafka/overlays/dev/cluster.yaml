@@ -1,0 +1,97 @@
+apiVersion: kafka.strimzi.io/v1
+kind: Kafka
+metadata:
+  name: platform-queue
+  namespace: messaging
+  labels:
+    platform-managed: queue
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm
+spec:
+  kafka:
+    version: 4.3.1
+    metadataVersion: 4.3-IV0
+    listeners:
+    - name: tls
+      port: 9093
+      type: internal
+      tls: true
+      authentication:
+        type: scram-sha-512
+      configuration:
+        useServiceDnsDomain: true
+      networkPolicyPeers:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: messaging
+      - namespaceSelector:
+          matchLabels:
+            component: monitoring
+    - name: plain
+      port: 9092
+      type: internal
+      tls: false
+      configuration:
+        useServiceDnsDomain: true
+      networkPolicyPeers:
+      - namespaceSelector:
+          matchLabels:
+            component: monitoring
+    authorization:
+      type: simple
+      superUsers:
+      - ANONYMOUS
+    rack:
+      topologyKey: topology.kubernetes.io/zone
+    config:
+      default.replication.factor: 3
+      min.insync.replicas: 2
+      offsets.topic.replication.factor: 3
+      transaction.state.log.replication.factor: 3
+      transaction.state.log.min.isr: 2
+      auto.create.topics.enable: false
+      unclean.leader.election.enable: false
+      log.retention.check.interval.ms: 300000
+    template:
+      podDisruptionBudget:
+        maxUnavailable: 1
+  entityOperator:
+    topicOperator:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 512Mi
+    userOperator:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 512Mi
+    template:
+      pod:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: workload
+                  operator: In
+                  values:
+                  - observability
+        tolerations:
+        - key: workload
+          operator: Equal
+          value: observability
+          effect: NoSchedule
+  clusterCa:
+    generateCertificateAuthority: true
+    validityDays: 365
+    renewalDays: 30
+    certificateExpirationPolicy: renew-certificate
+  clientsCa:
+    generateCertificateAuthority: true
+    validityDays: 365
+    renewalDays: 30

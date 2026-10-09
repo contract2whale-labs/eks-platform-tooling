@@ -1,0 +1,10 @@
+# 설명용 발췌: 현재 Kustomization은 이 파일을 읽지 않습니다. Prod 첫 설치는 prod-e2/values.yaml의 같은 두 설정을 직접 사용합니다.
+# gitops/platform/tempo/overlays/prod-e2/rollout-operator-values.yaml
+# Prod 관리형 Kafka 와 트레이스: 네임스페이스에 rollout-operator 가 없는 환경(Prod — 앞 세대 Tempo release 가 없음)에서 병렬 Tempo release 가 chart 의 rollout-operator 서브차트를 직접 설치하게 하는 겹침 값입니다.
+# zone 별 live-store StatefulSet 은 updateStrategy OnDelete 라서 rollout-operator 가 없으면 값이 바뀌어도 Pod 가 교체되지 않고, ZoneAwarePodDisruptionBudget 은 서브차트의 CRD 가 있어야 만들어집니다.
+# Dev 에서는 쓰지 않습니다 — epoch 1 release(platform-tempo)가 이미 설치했고, 같은 네임스페이스의 두 번째 설치는 webhook 설정 이름(…-monitoring)이 겹칩니다.
+liveStore:
+  zoneAwareReplication:
+    rolloutOperatorManagedExternally: false # 예: false (밖에 이미 있다는 선언을 거둠 — 아래 서브차트가 설치)
+rollout_operator:
+  enabled: true # 예: true (Deployment 1 · webhook 설정 4 · CRD 2: zoneawarepoddisruptionbudgets · replicatemplates)

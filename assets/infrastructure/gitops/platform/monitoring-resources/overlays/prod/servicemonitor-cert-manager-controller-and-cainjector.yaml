@@ -1,0 +1,23 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cert-manager-controller-and-cainjector
+  namespace: monitoring
+  labels:
+    release: platform-monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+    - cert-manager
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: cert-manager
+    matchExpressions:
+    - key: app.kubernetes.io/component
+      operator: In
+      values:
+      - controller
+      - cainjector
+  endpoints:
+  - port: http-metrics
+    interval: 30s

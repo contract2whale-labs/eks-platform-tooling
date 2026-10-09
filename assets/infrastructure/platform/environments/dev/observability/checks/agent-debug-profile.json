@@ -1,0 +1,19 @@
+{
+  "securityContext": {
+    "runAsUser": 0,
+    "runAsNonRoot": false,
+    "allowPrivilegeEscalation": false,
+    "capabilities": {
+      "drop": [
+        "ALL"
+      ]
+    }
+  },
+  "volumeMounts": [
+    {
+      "name": "checkpoints",
+      "mountPath": "/checkpoints",
+      "readOnly": true
+    }
+  ]
+}

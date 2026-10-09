@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-strimzi-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm
+spec:
+  project: platform
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: messaging
+  syncPolicy:
+    syncOptions:
+    - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
+  sources:
+  - repoURL: https://strimzi.io/charts/
+    chart: strimzi-kafka-operator
+    targetRevision: 1.2.0
+    helm:
+      releaseName: queue-operator
+      valueFiles:
+      - $values/gitops/platform/strimzi/values/prod.yaml
+  - repoURL: git@github.com:contract2whale-labs/cloud-platform-infrastructure.git
+    targetRevision: main
+    ref: values

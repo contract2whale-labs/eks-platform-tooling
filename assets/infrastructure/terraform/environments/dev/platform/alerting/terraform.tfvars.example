@@ -1,0 +1,10 @@
+# terraform.tfvars.example — dev platform/alerting 루트 모듈
+# terraform.tfvars 로 복사한 뒤 expected_account_id · state_bucket_name 을 work/lab.env 의 DEV_ACCOUNT_ID · DEV_STATE_BUCKET 으로, receiver_email 을 자기 주소로 바꿉니다.
+# terraform.tfvars 는 커밋하지 않습니다. 클러스터 계약과 로그 그룹 이름은 입력하지 않습니다 (remote-state.tf 가 eks · platform/operations State 에서 읽음).
+
+expected_account_id             = "111111111111"                     # 예: 12자리 AWS 계정 번호 (DEV_ACCOUNT_ID)
+environment                     = "dev"                              # 예: "dev" (이 디렉터리는 dev 만 허용)
+region                          = "ap-northeast-2"                   # 예: "ap-northeast-2" (서울 리전)
+state_bucket_name               = "company-dev-tfstate-111111111111" # 예: backend.hcl 의 bucket 과 같은 Dev State 버킷 (DEV_STATE_BUCKET)
+receiver_email                  = "ops-alerts@example.com"           # 예: 실습자가 자기 주소로 바꾸는 자리 (확인 메일 수신)
+sample_delete_validation_run_id = null                               # 예: null (감지를 켜지 않은 상태)

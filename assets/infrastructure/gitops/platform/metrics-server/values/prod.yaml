@@ -1,0 +1,7 @@
+# gitops/platform/metrics-server/values/prod.yaml
+# 노드 용량 제어: metrics-server chart 3.14.0 / image 0.9.0 입니다. kubectl top 과 HPA 의 resource metrics API 를 제공합니다. Prometheus 의 장기 시계열 저장소(관측 파이프라인)와 역할이 다릅니다.
+replicas: 2                            # 예: 2 (복제 2개; 장애 시 실제 Ready와 resource metrics API 조회를 확인)
+resources:
+  requests: {cpu: 100m, memory: 200Mi} # 예: {cpu: 100m, memory: 200Mi} (배치에 쓰는 요청량)
+  limits: {memory: 400Mi}              # 예: {memory: 400Mi} (메모리 상한)
+# --kubelet-insecure-tls 를 넣어 인증서 검증을 우회하지 않습니다 (EKS 노드의 kubelet 서빙 인증서는 클러스터 CA 가 서명).

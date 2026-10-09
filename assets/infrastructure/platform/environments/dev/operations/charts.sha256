@@ -1,0 +1,5 @@
+fc2235278cdb4e76befb8520464a66ff459c6d7711bbbc8755dedcc32799877b  charts/fluent-bit-0.58.1.tgz
+90276dafe65cf5d4328ef8313baf6cfb9d130683e0c9f3c28a03b4d8a9ed8f6e  charts/cluster-autoscaler-9.59.0.tgz
+b96e948fff3674638b5d3f9e43886f3796e04739c4b4127929aed2ddac7d1418  charts/external-secrets-2.10.0.tgz
+cd23589ad1b2d25cdd3220f6866b3f6f4c5683c4c09494e76a14700b33f81f83  charts/velero-12.1.0.tgz
+c2ca1185c01e6e7f53dd1b7d131f0c9b3fa50e003ed068b784563a1b5a3422a1  charts/metrics-server-3.14.0.tgz

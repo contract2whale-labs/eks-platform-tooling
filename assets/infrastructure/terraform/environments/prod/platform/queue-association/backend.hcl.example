@@ -1,0 +1,5 @@
+bucket = "company-prod-tfstate-222222222222"
+key = "platform/queue-association/terraform.tfstate"
+region = "ap-northeast-2"
+encrypt = true
+use_lockfile = true

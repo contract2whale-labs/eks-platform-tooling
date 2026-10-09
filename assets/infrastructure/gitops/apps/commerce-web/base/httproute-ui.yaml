@@ -1,0 +1,24 @@
+# gitops/apps/commerce-web/base/httproute-ui.yaml — 스토어프런트 경로의 HTTPRoute (팀 로그인과 API 인가 의 app-ui 와 같은 이름)
+# hostnames 는 환경마다 다르므로 overlays/<env> 의 patch 가 채웁니다 (서비스 진입 경로 Namespace annotation platform.example/hostname 과 같은 값).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: app-ui                                  # 예: app-ui (서비스 진입 경로 규약과 같은 이름 — Envoy 클러스터 이름 httproute/contract2whale-demo/app-ui/rule/0/backend/N 의 근거)
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: platform                            # 예: 서비스 진입 경로 gateway_contract.gateway_name
+      namespace: platform-gateway               # 예: platform-gateway
+      sectionName: https                        # 예: 서비스 진입 경로 gateway_contract.listener_name
+  hostnames: ["REPLACED_BY_OVERLAY"]            # 예: dev.<PARENT_DOMAIN> (overlays/dev patch)
+  rules:
+    - matches:
+        - path: {type: PathPrefix, value: /}    # 예: 스토어프런트 전체 (더 긴 접두사를 가진 라우트가 먼저 잡음)
+      backendRefs:
+        - name: commerce-web-stable             # 예: 안정 버전 (weight 100 = 평상시 전부)
+          port: 3000
+          weight: 100
+        - name: commerce-web-canary             # 예: canary 버전 (weight 0 = 평상시 없음; Rollouts 가 10 · 50 · 100 으로 조정)
+          port: 3000
+          weight: 0

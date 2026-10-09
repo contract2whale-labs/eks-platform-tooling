@@ -1,0 +1,40 @@
+# gitops/platform/velero/values/prod.yaml
+# Pod Identity 가 임시 AWS 자격 증명을 전달하므로 정적 자격 증명 Secret 이 없습니다. backupStorageLocation.config.tagging 은 켜지 않습니다 (Role 에 s3:PutObjectTagging 이 없음 — 계획서 10장).
+image: {repository: velero/velero, tag: v1.18.2}    # 예: v1.18.2 (고정한 백업 도구 버전; versions.env VELERO_IMAGE_TAG)
+serviceAccount:
+  server:
+    create: true                       # 예: true (chart 가 ServiceAccount 를 만듭니다)
+    name: velero                       # 예: velero (Pod Identity 연결의 service_account 와 같은 이름; annotation 없음)
+credentials: {useSecret: false}        # 예: false (정적 자격 증명 Secret 을 만들지 않습니다)
+initContainers:
+  - name: velero-plugin-for-aws        # 예: velero-plugin-for-aws (AWS 연동 플러그인 이름)
+    image: velero/velero-plugin-for-aws:v1.14.2     # 예: v1.14.2 (고정한 플러그인 버전; versions.env VELERO_AWS_PLUGIN_TAG)
+    volumeMounts:
+      - {name: plugins, mountPath: /target}         # 예: /target (플러그인을 복사해 넣는 자리)
+configuration:
+  backupStorageLocation:
+    - name: default                    # 예: default (백업 저장 위치 이름)
+      provider: aws                    # 예: aws (저장 위치 제공자)
+      bucket: example-prod-backup-bucket        # 예: velero-contract2whale-prod-eks-222222222222-ap-northeast-2 (계약의 velero_bucket_name)
+      prefix: backups                  # 예: backups (버킷 안의 앞 경로 → 객체 key 는 backups/backups/<이름>/…)
+      default: true                    # 예: true (위치를 적지 않은 백업이 여기 저장됩니다)
+      config: {region: ap-northeast-2}     # 예: ap-northeast-2 (렌더가 계약의 region 으로 채웁니다)
+  volumeSnapshotLocation:
+    - name: default                    # 예: default (스냅샷 위치 이름)
+      provider: aws                    # 예: aws (스냅샷 제공자)
+      config: {region: ap-northeast-2}     # 예: ap-northeast-2 (스냅샷을 만들 리전)
+  defaultBackupTTL: 168h               # 예: 168h (백업의 기본 보관 기간)
+# AWS 플러그인이 EBS CSI 가 만든 볼륨의 EC2 스냅샷을 처리합니다 (CSI VolumeSnapshot CRD 경로와 다름). 스냅샷은 Terraform State 밖 자원입니다.
+snapshotsEnabled: true                 # 예: true (볼륨 스냅샷을 함께 만듭니다)
+deployNodeAgent: false                 # 예: false (파일 단위 백업 에이전트를 띄우지 않습니다)
+resources:
+  requests: {cpu: 100m, memory: 256Mi} # 예: cpu 100m, memory 256Mi (배치에 쓰는 요청량)
+  limits: {memory: 1Gi}                # 예: memory 1Gi (메모리 상한)
+metrics:
+  enabled: true                        # 예: true (지표를 내보냅니다)
+  serviceMonitor:
+    enabled: false
+    additionalLabels: {release: platform-monitoring} # 예: release=platform-monitoring (수집 도구가 고르는 표시)
+# 첫 설치에서 자동 백업 성공을 가정하지 않습니다. 복구 시험을 통과한 뒤 gitops/platform/velero-resources/overlays/prod/schedule.yaml의 paused를 별도 승인 PR에서 false로 바꿉니다.
+schedules: {}                          # 예: {} (chart 가 일정을 만들지 않습니다)
+cleanUpCRDs: false                     # 예: false (chart 제거 시 CRD 보존; 현재 CRD와 기존 객체의 삭제는 별도 소유권·보존·승인 판단)

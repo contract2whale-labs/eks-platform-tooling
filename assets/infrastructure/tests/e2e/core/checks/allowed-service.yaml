@@ -1,0 +1,9 @@
+# tests/e2e/core/checks/allowed-service.yaml
+# 클러스터 공통 서비스: server-side dry-run 의 정상 입력입니다. 실제 Service 를 생성하지 않습니다.
+apiVersion: v1 # 예: v1 (핵심 API 그룹의 버전)
+kind: Service  # 예: Service (검사 대상 자원 종류)
+metadata: {name: admission-allowed, namespace: team-platform-check} # 예: tenant label 이 붙은 namespace 의 Service
+spec:
+  type: ClusterIP                                     # 예: ClusterIP (정책이 허용하는 유일한 형태)
+  selector: {app: policy-server}                      # 예: {app: policy-server} (대상 Pod 선택 label)
+  ports: [{name: http, port: 8080, targetPort: 8080}] # 예: 8080 포트를 8080 으로 전달

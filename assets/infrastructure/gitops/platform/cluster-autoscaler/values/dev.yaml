@@ -1,0 +1,29 @@
+# gitops/platform/cluster-autoscaler/values/dev.yaml
+# IAM 과 ASG 탐색 태그는 Terraform(modules/operations), desired capacity 는 이 컨트롤러가 소유합니다 (관리형 노드 그룹 lifecycle에서 desired_size만 ignore).
+image:
+  tag: v1.36.1                         # 예: v1.36.1 (클러스터 버전과 같은 계열의 이미지 버전)
+fullnameOverride: cluster-autoscaler   # 예: 뒤의 Deployment 조회 이름을 실제 생성 이름으로 고정
+cloudProvider: aws                     # 예: aws (ASG 를 다루는 구현 선택)
+awsRegion: ap-northeast-2                  # 예: 렌더 뒤 ap-northeast-2 (계약의 region 이 채워지는 자리)
+autoDiscovery:
+  clusterName: contract2whale-dev-eks             # 예: 렌더 뒤 contract2whale-dev-eks (계약의 cluster_name; 탐색 태그 k8s.io/cluster-autoscaler/<이름>=owned 와 같아야 함)
+rbac:
+  serviceAccount:
+    create: true                       # 예: true (chart 가 ServiceAccount 를 만듦)
+    name: cluster-autoscaler           # 예: cluster-autoscaler (Pod Identity 연결의 service_account 와 같은 이름; annotation 없음)
+replicaCount: 1                        # 예: 1 (판단하는 주체를 하나로 둠)
+extraArgs:
+  logtostderr: true                    # 예: true (로그를 표준 오류로 보냄)
+  stderrthreshold: info                # 예: info (표준 오류로 보낼 최소 수준)
+  v: 2                                 # 예: 2 (로그 상세 수준)
+  expander: least-waste                # 예: least-waste (남는 자원이 가장 적은 그룹을 고름)
+  balance-similar-node-groups: true    # 예: true (모양이 같은 그룹을 고르게 채움)
+  skip-nodes-with-system-pods: true    # 예: 일반 kube-system Pod 축소 전 대기 적용; DaemonSet · mirror Pod 는 예외
+  scale-down-unneeded-time: 10m        # 예: 10m (이 시간 동안 계속 놀아야 줄임)
+resources:
+  requests: {cpu: 100m, memory: 300Mi} # 예: {cpu: 100m, memory: 300Mi} (배치에 쓰는 요청량)
+  limits: {memory: 600Mi}              # 예: {memory: 600Mi} (메모리 상한)
+serviceMonitor:
+  enabled: false
+  namespace: monitoring                # 예: monitoring (수집 정의를 둘 네임스페이스)
+  selector: {release: platform-monitoring} # 예: {release: platform-monitoring} (Prometheus 가 고르는 표시)

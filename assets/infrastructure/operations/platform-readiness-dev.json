@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "environment": "dev",
+  "groups": [
+    {
+      "name": "namespaces",
+      "applications": [
+        "platform-namespaces-dev",
+        "platform-storage-dev"
+      ],
+      "ready": []
+    },
+    {
+      "name": "gateway-controllers",
+      "applications": [
+        "platform-aws-load-balancer-controller-dev",
+        "platform-envoy-gateway-dev"
+      ],
+      "ready": [
+        {
+          "kind": "CustomResourceDefinition",
+          "name": "gateways.gateway.networking.k8s.io",
+          "condition": "Established"
+        },
+        {
+          "kind": "CustomResourceDefinition",
+          "name": "envoyproxies.gateway.envoyproxy.io",
+          "condition": "Established"
+        },
+        {
+          "kind": "Deployment",
+          "namespace": "kube-system",
+          "name": "aws-load-balancer-controller",
+          "condition": "Available"
+        },
+        {
+          "kind": "Deployment",
+          "namespace": "platform-gateway",
+          "name": "envoy-gateway",
+          "condition": "Available"
+        }
+      ]
+    },
+    {
+      "name": "gateway-resources",
+      "applications": [
+        "platform-gateway-dev"
+      ],
+      "ready": [
+        {
+          "kind": "Certificate",
+          "namespace": "platform-gateway",
+          "name": "platform-gateway",
+          "condition": "Ready"
+        },
+        {
+          "kind": "Gateway",
+          "namespace": "platform-gateway",
+          "name": "platform",
+          "condition": "Programmed"
+        }
+      ]
+    },
+    {
+      "name": "secret-controller",
+      "applications": [
+        "platform-external-secrets-dev"
+      ],
+      "ready": [
+        {
+          "kind": "CustomResourceDefinition",
+          "name": "externalsecrets.external-secrets.io",
+          "condition": "Established"
+        },
+        {
+          "kind": "Deployment",
+          "namespace": "external-secrets",
+          "name": "external-secrets",
+          "condition": "Available"
+        }
+      ]
+    },
+    {
+      "name": "grafana-secret",
+      "applications": [
+        "platform-grafana-secret-dev"
+      ],
+      "ready": [
+        {
+          "kind": "SecretStore",
+          "namespace": "monitoring",
+          "name": "grafana-secrets",
+          "condition": "Valid"
+        },
+        {
+          "kind": "ExternalSecret",
+          "namespace": "monitoring",
+          "name": "grafana-admin",
+          "condition": "Ready"
+        }
+      ]
+    },
+    {
+      "name": "monitoring-config",
+      "applications": [
+        "platform-monitoring-config-dev"
+      ],
+      "ready": []
+    },
+    {
+      "name": "monitoring-controller",
+      "applications": [
+        "platform-monitoring-dev"
+      ],
+      "ready": [
+        {
+          "kind": "CustomResourceDefinition",
+          "name": "prometheuses.monitoring.coreos.com",
+          "condition": "Established"
+        },
+        {
+          "kind": "Deployment",
+          "namespace": "monitoring",
+          "name": "platform-monitoring-kube-prometheus-operator",
+          "condition": "Available"
+        }
+      ]
+    },
+    {
+      "name": "strimzi-controller",
+      "applications": [
+        "platform-strimzi-dev"
+      ],
+      "ready": [
+        {
+          "kind": "CustomResourceDefinition",
+          "name": "kafkas.kafka.strimzi.io",
+          "condition": "Established"
+        },
+        {
+          "kind": "Deployment",
+          "namespace": "messaging",
+          "name": "strimzi-cluster-operator",
+          "condition": "Available"
+        }
+      ]
+    },
+    {
+      "name": "kafka",
+      "applications": [
+        "platform-kafka-dev"
+      ],
+      "ready": [
+        {
+          "kind": "Kafka",
+          "namespace": "messaging",
+          "name": "platform-queue",
+          "condition": "Ready"
+        },
+        {
+          "kind": "KafkaTopic",
+          "namespace": "messaging",
+          "name": "platform-traces",
+          "condition": "Ready"
+        }
+      ]
+    },
+    {
+      "name": "tempo",
+      "applications": [
+        "platform-tempo-dev",
+        "platform-tempo-active-query-dev"
+      ],
+      "ready": []
+    }
+  ]
+}

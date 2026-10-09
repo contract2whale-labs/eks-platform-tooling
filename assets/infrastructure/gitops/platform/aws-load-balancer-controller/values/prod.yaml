@@ -1,0 +1,20 @@
+# gitops/platform/aws-load-balancer-controller/values/prod.yaml
+replicaCount: 2 # 예: 2 (controller Pod 수)
+serviceAccount:
+  create: true                       # 예: true (chart 가 ServiceAccount 를 만듦)
+  name: aws-load-balancer-controller # 예: Pod Identity 연결(modules/gateway local.controllers.lbc.sa)과 같은 이름
+  annotations: {}                    # 예: {} (Pod Identity 를 쓰므로 IRSA annotation · 장기 access key 없음)
+defaultTargetType: ip # 예: ip (Pod IP 를 대상으로 등록)
+# Gateway 의 Service 가 loadBalancerClass 를 명시합니다. 모든 tenant LoadBalancer Service 를 자동으로 인수하지 않습니다.
+enableServiceMutatorWebhook: false # 예: false (다른 LoadBalancer Service 를 건드리지 않음)
+podDisruptionBudget:
+  minAvailable: 1 # 예: 1 (중단 중에도 남겨 둘 controller 수)
+resources:
+  requests: { cpu: 100m, memory: 256Mi } # 예: 요청
+  limits: { memory: 512Mi }              # 예: 상한 (CPU 상한 없음)
+serviceMonitor:
+  enabled: false # 예: false (운영 기반 구성(관측 파이프라인)이 ServiceMonitor 를 소유; metrics Service 는 controller Helm chart가 만듦)
+# 이 설치는 NLB Service 만 담당합니다. ALB IngressClass 를 새로 만들지 않습니다 (tenant Ingress 는 Admission 허용 · 거부 조건 정책이 거부).
+createIngressClassResource: false # 예: false (IngressClass 를 만들지 않음)
+ingressClassParams:
+  create: false # 예: false (IngressClassParams 객체를 만들지 않음)

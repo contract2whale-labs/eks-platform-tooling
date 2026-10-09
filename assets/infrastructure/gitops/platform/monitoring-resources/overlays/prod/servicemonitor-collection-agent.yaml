@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: collection-agent
+  namespace: monitoring
+  labels:
+    release: platform-monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+    - observability
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: collection-agent
+      app.kubernetes.io/name: opentelemetry-collector
+  jobLabel: app.kubernetes.io/instance
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s

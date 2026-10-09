@@ -1,0 +1,130 @@
+# modules/delivery/examples/github-actions-ci.yml
+# 공급망 규칙: (1) 모든 액션은 커밋 SHA 로 고정(뒤 주석이 버전; 2026-09-17 GitHub API 조회 — _qa/verified-refs.md) (2) 도구는 공식 액션으로 설치(curl | sh 없음) (3) 인프라 저장소 PR 은 개인 PAT 가 아니라 GitHub App 의 단기 토큰 (4) 빌드 태그는 build-<sha12>(ECR 수명 주기 규칙 3), 배포 참조는 digest.
+# GITOPS_REPOSITORY에는 자신의 조직/인프라 저장소 경로를 등록합니다. 예: contract2whale-labs/cloud-platform-infrastructure.
+name: ci
+on:
+  pull_request:                                  # 예: PR 은 ci-test 만 (release job 은 건너뜀)
+  push:
+    branches: [main]                             # 예: main push → 이미지 게시 (CI Role 신뢰 sub: repo:<owner>@<owner ID>/<app>@<저장소 ID>:ref:refs/heads/main)
+    # tags 트리거는 두지 않습니다 — Ruleset 은 branch 만 보호하므로, 검토 없는 커밋에 붙인 v* 태그가 KMS 서명을 받지 못하게 main 만 게시합니다 (신뢰 정책에도 refs/tags 없음)
+permissions:
+  contents: read                                 # 예: checkout
+env:
+  APP_NAME: commerce-web                                           # 예: commerce-web (이 저장소의 앱 이름 = 이미지 이름 = Rollout 컨테이너 이름; commerce-api 저장소에서는 commerce-api)
+  AWS_REGION: ${{ vars.DELIVERY_REGION }}                          # 예: ap-northeast-2
+  CI_ROLE_ARN: ${{ vars.DELIVERY_CI_ROLE_ARN }}                    # 예: arn:aws:iam::111111111111:role/platform/cp-dev-ci-delivery (두 앱 저장소가 같은 Role 을 맡음)
+  IMAGE_REPOSITORY: ${{ vars.DELIVERY_APP_IMAGE_REPOSITORY }}      # 예: 111111111111.dkr.ecr.ap-northeast-2.amazonaws.com/commerce-web (저장소마다 자기 리포지토리)
+  SIGNING_KEY: ${{ vars.DELIVERY_SIGNING_KEY_ALIAS }}              # 예: alias/delivery-signing (cosign --key awskms:///alias/delivery-signing; Kyverno keys.kms 와 같은 alias)
+  GITOPS_REPOSITORY: ${{ vars.GITOPS_REPOSITORY }}  # 예: 선언된 상태(Desired State) 저장소 (delivery_contract.argocd.gitops_repository 와 같은 값)
+  GITOPS_OVERLAY_DIR: gitops/apps/commerce-web/overlays/dev        # 예: CI 가 바꾸는 overlay (delivery_contract.argocd.gitops_paths.web — kustomize edit set image 한 줄)
+  TOOLCHAIN_IMAGE: ${{ vars.TOOLCHAIN_IMAGE }}                    # 실제로 빌드·검사·게시한 공통 도구 이미지의 digest
+jobs:
+  ci-test:                                       # 예: 1. test · lint (두 앱 다 Node · pnpm; PR 검사 워크플로 이 저장소별 명령을 채움) — job 이름은 pr.yml 의 통합 테스트 job test 와 겹치지 않게 ci-test (Ruleset 필수 체크 test 는 pr.yml 의 것)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: corepack enable                     # 예: package.json 의 packageManager 버전으로 pnpm 활성화 (액션을 더 쓰지 않음; Node 버전 고정은 PR 검사 워크플로 에서 .tool-versions 와 함께)
+      - run: pnpm install --frozen-lockfile      # 예: lockfile 그대로 설치 (lockfile 과 다르면 실패)
+      - run: pnpm test                           # 예: 저장소 루트의 test 스크립트 — commerce-web = prettier:check · commerce-api = turbo test (실패 = 게시 없음)
+  release:                                       # 예: 2~6. build · push · SBOM · 취약점 판정 · 서명 · gitops PR
+    needs: ci-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' # 예: main push 만 (PR · 다른 branch · 태그는 게시하지 않음)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write                            # 승인된 main의 게시 job에서만 AWS OIDC 토큰을 발급
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Assume the delivery CI role (OIDC)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ env.CI_ROLE_ARN }} # 예: 자격 증명 없는 역할 인수 — 토큰 sub 가 신뢰 정책의 StringLike 와 맞아야 함
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Log in to ECR
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7 (ecr:GetAuthorizationToken — Statement EcrLogin)
+      - name: Build and push (immutable build tag)
+        id: push
+        run: |
+          TAG="build-${GITHUB_SHA::12}"           # 예: build-3f2a9c1b0e7d (IMMUTABLE 리포지토리 — 같은 태그 재push 거부; 수명 주기 규칙 3 이 14일 뒤 정리)
+          docker build -t "$IMAGE_REPOSITORY:$TAG" .
+          docker push "$IMAGE_REPOSITORY:$TAG"
+          DIGEST="$(aws ecr describe-images --repository-name "${IMAGE_REPOSITORY##*/}" --image-ids imageTag="$TAG" --query 'imageDetails[0].imageDigest' --output text)" # 예: sha256:… (게시된 manifest 의 digest)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "ref=$IMAGE_REPOSITORY@$DIGEST" >> "$GITHUB_OUTPUT"  # 예: 이후 단계는 태그가 아니라 digest 참조만 씀
+      - name: SBOM (Syft, SPDX JSON)
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2 (공식 액션 — curl | sh 없음)
+        with:
+          image: ${{ steps.push.outputs.ref }}   # 예: 게시된 digest 를 스캔 (서명한 것 = 스캔한 것)
+          format: spdx-json                      # 예: SPDX-2.3 문서 (Kyverno 정책의 spdxVersion 조건)
+          output-file: sbom.spdx.json
+          upload-artifact: false
+      - name: Vulnerability gate (Trivy, CRITICAL fails)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.push.outputs.ref }}
+          severity: CRITICAL                     # 예: 수정 버전이 있는 CRITICAL 이 1개라도 있으면 여기서 실패 (서명 · PR 없음)
+          exit-code: '1'
+          ignore-unfixed: true
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with: {cosign-release: 'v3.1.3'}       # 예: tool-versions 의 cosign 3.1.3 과 같은 버전
+      - name: Sign and attest with the KMS key
+        env:
+          IMAGE_REF: ${{ steps.push.outputs.ref }}
+        run: |
+          cosign sign --key "awskms:///$SIGNING_KEY" --tlog-upload=false --use-signing-config=false --new-bundle-format=false --yes "$IMAGE_REF" # 예: kms:Sign (Statement KmsSign) → ECR 태그 sha256-<digest>.sig (뒤 두 옵션이 없으면 cosign 3 은 --tlog-upload=false 를 거부하고, 서명을 Kyverno 가 읽지 못하는 bundle 형식으로 저장)
+          cosign attest --key "awskms:///$SIGNING_KEY" --tlog-upload=false --use-signing-config=false --new-bundle-format=false --yes --type spdxjson --predicate sbom.spdx.json "$IMAGE_REF" # 예: → 태그 sha256-<digest>.att
+          cosign verify --key "awskms:///$SIGNING_KEY" --insecure-ignore-tlog "$IMAGE_REF" > /dev/null # 예: 게시 직후 자기 검증 (kms:GetPublicKey)
+      - name: Check the infrastructure repository boundary
+        run: |
+          [[ "$GITOPS_REPOSITORY" == "$GITHUB_REPOSITORY_OWNER/cloud-platform-infrastructure" ]] || {
+            echo "GitOps repository must be the reviewed infrastructure repository in this organization" >&2
+            exit 1
+          }
+      - name: GitHub App token for the infrastructure repository
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0 (개인 PAT 대신 시스템 계정의 단기 토큰)
+        with:
+          app-id: ${{ secrets.GITOPS_APP_ID }}
+          private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: cloud-platform-infrastructure
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Open the gitops digest PR (one line, kustomize edit)
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+          IMAGE_REF: ${{ steps.push.outputs.ref }}
+        run: |
+          gh auth setup-git --hostname github.com
+          gh repo clone "$GITOPS_REPOSITORY" gitops-repo -- --depth 1
+          cd gitops-repo
+          [[ "${TOOLCHAIN_IMAGE:?}" =~ @sha256:[0-9a-f]{64}$ ]] || exit 1
+          # 기존 공통 도구 이미지의 고정 kustomize로 편집합니다. 러너의 우연한 설치 버전에 의존하지 않습니다.
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/workspace" \
+            -w "/workspace/$GITOPS_OVERLAY_DIR" "$TOOLCHAIN_IMAGE" \
+            kustomize edit set image "$APP_NAME=$IMAGE_REPOSITORY@$DIGEST"
+          docker run --rm -v "$PWD:/workspace:ro" -w /workspace "$TOOLCHAIN_IMAGE" \
+            python3 automation/check_image_promotion.py --repo . \
+            --overlay "$GITOPS_OVERLAY_DIR" --image "$APP_NAME" \
+            --expected-repository "$IMAGE_REPOSITORY" --expected-digest "$DIGEST"
+          BRANCH="release/$APP_NAME-dev-${DIGEST:7:12}"
+          git config user.name "$APP_NAME-ci[bot]"; git config user.email "$APP_NAME-ci[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add -- "$GITOPS_OVERLAY_DIR/kustomization.yaml"
+          git diff --cached --check
+          MESSAGE_FILE="$RUNNER_TEMP/gitops-commit-message.txt"
+          cat > "$MESSAGE_FILE" <<MESSAGE
+          chore(gitops): promote $APP_NAME development image
+
+          검사한 이미지의 digest를 개발 환경 선언에 기록합니다.
+          MESSAGE
+          git commit -F "$MESSAGE_FILE"
+          git push origin "$BRANCH"
+          PR_BODY_FILE="$RUNNER_TEMP/gitops-pr-body.txt"
+          printf 'Image: %s\n\nKMS signature, SPDX SBOM and the configured Trivy gate passed. The parsed declaration check permits only this application image digest. CODEOWNERS review and merge approve deployment.\n' "$IMAGE_REF" > "$PR_BODY_FILE"
+          gh pr create --title "$APP_NAME dev: $GITHUB_REF_NAME" --body-file "$PR_BODY_FILE" # 예: CODEOWNERS 리뷰 · merge 가 승인 (권한과 승인 제어)

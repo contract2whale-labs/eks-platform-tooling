@@ -1,0 +1,104 @@
+# platform/environments/dev/core/checks/network-probes.yaml
+# 클러스터 공통 서비스: 패킷 계층 검사용 Deployment 3개 + Service 1개입니다. check-network.sh가 승인 digest로 임시 WORK에 렌더하고 create합니다. 종료 시 이번 실행 label의 진단 객체와 임시 파일을 정리합니다.
+# Deployment 로 만들어 ownerReferences 가 생기게 합니다 (CNI 정책 검사에 직접 만든 Pod 를 쓰지 않음). 세 Pod 모두 restricted PSA 를 만족합니다.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: policy-server              # 예: policy-server (객체 이름이자 app label 값; allow-check-client-to-server 의 목적지)
+  namespace: team-platform-check   # 예: team-platform-check (NetworkPolicy 가 적용된 namespace)
+spec:
+  replicas: 1                      # 예: 1 (검사용이므로 1개)
+  selector:
+    matchLabels: {app: policy-server}
+  template:
+    metadata:
+      labels: {app: policy-server} # 예: app: policy-server (NetworkPolicy podSelector 가 고르는 label)
+    spec:
+      automountServiceAccountToken: false # 예: false (API 토큰을 마운트하지 않음)
+      securityContext:
+        runAsNonRoot: true                    # 예: true (restricted 요구)
+        runAsUser: 1000                       # 예: 1000 (root 가 아닌 UID)
+        seccompProfile: {type: RuntimeDefault} # 예: RuntimeDefault (restricted 요구)
+      containers:
+        - name: probe
+          image: platform-probe                 # 예: public.ecr.aws/docker/library/python@sha256:<64자리> (check-network.sh 가 치환)
+          command: [python3, -m, http.server, "8080"]    # 예: 8080 에서 응답하는 HTTP 서버 (server 만 응답)
+          ports: [{name: http, containerPort: 8080}]     # 예: TCP 8080
+          securityContext:
+            allowPrivilegeEscalation: false # 예: false (restricted 요구)
+            readOnlyRootFilesystem: true    # 예: true (쓰기 불가 루트)
+            capabilities: {drop: [ALL]}     # 예: 모든 capability 제거
+          resources:
+            requests: {cpu: 10m, memory: 32Mi} # 예: 최소 요청
+            limits: {memory: 128Mi}            # 예: 메모리 상한
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: policy-client              # 예: policy-client (allow-check-client-egress 가 고르는 출발지)
+  namespace: team-platform-check
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: policy-client}
+  template:
+    metadata:
+      labels: {app: policy-client}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: probe
+          image: platform-probe
+          command: [python3, -c, "import time; time.sleep(3600)"] # 예: 대기만 하는 client (exec 로 요청을 보냄)
+          ports: [{name: http, containerPort: 8080}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 128Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: policy-denied              # 예: policy-denied (어떤 허용 정책에도 고르지 않는 Pod; DNS 만 허용)
+  namespace: team-platform-check
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: policy-denied}
+  template:
+    metadata:
+      labels: {app: policy-denied}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: probe
+          image: platform-probe
+          command: [python3, -c, "import time; time.sleep(3600)"]
+          ports: [{name: http, containerPort: 8080}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 128Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: policy-server              # 예: policy-server (이름 해석과 ClusterIP 제공; tenant-clusterip-services 정책을 통과하는 ClusterIP)
+  namespace: team-platform-check
+spec:
+  selector: {app: policy-server}                      # 예: server Pod 만 endpoint 로 등록
+  ports: [{name: http, port: 8080, targetPort: 8080}] # 예: 8080 → 8080

@@ -1,0 +1,48 @@
+# platform/environments/dev/observability/tests/application-rules.test.yaml
+# 대시보드 연결: gitops/platform/monitoring-resources/overlays/dev/80-application-rules.yaml 의 규칙을 promtool 단위 시험 4가지로 확인합니다. tests/check-rules.sh 가 PrometheusRule 에서 groups 를 뽑아(yq) promtool test rules 를 돌립니다 (클러스터 · AWS 호출 없음).
+rule_files:
+  - application-rules.yaml # 예: check-rules.sh 가 만드는 임시 규칙 파일 (spec.groups 만)
+evaluation_interval: 30s
+tests:
+  # 1. 요청이 충분(≈ 6.7 req/s)하고 오류가 많을 때(≈ 50%) ApplicationErrorRateHigh 가 뜹니다.
+  - interval: 30s
+    input_series:
+      - series: 'course_http_requests_total{service_name="api", status_code="200"}'
+        values: '0+100x40'
+      - series: 'course_http_requests_total{service_name="api", status_code="500"}'
+        values: '0+100x40'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: ApplicationErrorRateHigh
+        exp_alerts:
+          - exp_labels: {severity: critical, service_name: api}
+            exp_annotations: {summary: api business 5xx ratio is above 5% with at least 1 req/s}
+  # 2. 요청이 적을 때(≈ 0.03 req/s) 오류 비율이 커도 뜨지 않습니다 (최소 요청 수 조건).
+  - interval: 30s
+    input_series:
+      - series: 'course_http_requests_total{service_name="api", status_code="200"}'
+        values: '0+1x40'
+      - series: 'course_http_requests_total{service_name="api", status_code="500"}'
+        values: '0+1x40'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: ApplicationErrorRateHigh
+        exp_alerts: []
+  # 3. 입력 계열이 없으면 ApplicationTargetMissing 이 뜹니다 (없음 ≠ 정상).
+  - interval: 30s
+    input_series: []
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: ApplicationTargetMissing
+        exp_alerts:
+          - exp_labels: {severity: critical}
+            exp_annotations: {summary: Application request metrics are absent; do not read missing data as zero errors}
+  # 4. 대상이 살아 있으면 ApplicationTargetMissing 이 뜨지 않습니다 (3 과 짝).
+  - interval: 30s
+    input_series:
+      - series: 'course_http_requests_total{service_name="api", status_code="200"}'
+        values: '0+10x40'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: ApplicationTargetMissing
+        exp_alerts: []

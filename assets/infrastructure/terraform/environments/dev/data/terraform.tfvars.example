@@ -1,0 +1,37 @@
+# terraform.tfvars.example — dev data 루트 모듈
+# 데이터 루트 모듈과 PostgreSQL 버전 고정: terraform.tfvars 로 복사한 뒤 expected_account_id · state_bucket_name 을 work/lab.env 의 DEV_ACCOUNT_ID · DEV_STATE_BUCKET 으로, database.engine_version 을 아래 조회 결과로 바꿉니다. terraform.tfvars 는 커밋하지 않습니다.
+# 클러스터 · 네트워크 · 앱 좌표는 입력하지 않습니다 (remote-state.tf 가 eks · network/vpc · delivery State 에서 읽음 — P1).
+#
+# 실제 리전의 지원 버전·주문 가능한 인스턴스 조회 (출력은 직접 확인합니다):
+#   aws rds describe-db-engine-versions --engine postgres --region ap-northeast-2
+#   aws rds describe-orderable-db-instance-options --engine postgres --engine-version 17.6 --db-instance-class db.t4g.micro --region ap-northeast-2
+# 위 17.6 / db.t4g.micro는 입력 형태 예시입니다. 실제 버전·인스턴스·gp3·AZ 지원을 함께 확인하고 명시적으로 고정합니다.
+# 조회 실패나 빈 목록을 지원으로 해석하지 않으며 다른 첫 버전으로 자동 대체하지 않습니다.
+
+expected_account_id = "111111111111"                     # 예: 12자리 AWS 계정 번호 (DEV_ACCOUNT_ID)
+region              = "ap-northeast-2"                   # 예: "ap-northeast-2" (서울 리전)
+environment         = "dev"                              # 예: "dev" (이 디렉터리는 dev 만 허용)
+state_bucket_name   = "company-dev-tfstate-111111111111" # 예: backend.hcl 의 bucket 과 같은 Dev State 버킷 (DEV_STATE_BUCKET)
+
+database = {
+  name                  = "commercedb"   # 예: "commercedb" (Medusa 의 DATABASE_URL 이 가리키는 데이터베이스; app schema 는 데이터베이스 초기화 이 만듦)
+  engine_version        = "17.6"         # 예: "17.6" (형식 예시 — 위 조회 결과로 바꿉니다)
+  instance_class        = "db.t4g.micro" # 예: "db.t4g.micro" (2 vCPU · 1 GiB, Graviton; 느리면 db.t4g.small)
+  allocated_storage     = 20             # 예: 20 (GiB, gp3 최소)
+  max_allocated_storage = 100            # 예: 100 (GiB, 자동 확장 상한)
+  backup_retention_days = 7              # 예: 7 (0 은 변수 validation 이 거부)
+  multi_az              = false          # 예: false (Dev 는 단일 AZ — Prod 루트 모듈은 true)
+  deletion_protection   = false          # 예: false (Dev 는 down.sh 가 지울 수 있어야 함 — Prod 는 true)
+}
+
+# 캐시(ElastiCache Valkey 서버리스)입니다. 기본값 그대로면 만들어지고, 실습을 쉬는 동안에는 enable_redis = false 로 내렸다가 다시 true 로 올립니다.
+enable_redis = true # 예: true (기본) / false (요금을 쉬는 동안)
+
+redis = {
+  major_engine_version    = "8"  # 예: "8" (Valkey 8; 주 버전만 적습니다 — 부 버전은 AWS 가 올립니다)
+  max_data_storage_gb     = 1    # 예: 1 (GB 상한 — 최소 1)
+  max_ecpu_per_second     = 5000 # 예: 5000 (초당 ECPU 상한 — 최소 1000)
+  snapshot_retention_days = 1    # 예: 1 (Dev 는 0 으로 두어도 됩니다 — Prod 는 1 이상)
+}
+
+# service_accounts = { runtime = "commerce-api", operator = "database-operator" } # 예: 기본값과 다르게 쓸 때만 적습니다

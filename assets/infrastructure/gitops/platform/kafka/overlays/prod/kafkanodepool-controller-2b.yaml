@@ -1,0 +1,49 @@
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaNodePool
+metadata:
+  name: controller-2b
+  namespace: messaging
+  labels:
+    strimzi.io/cluster: platform-queue
+    platform-managed: queue
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm
+spec:
+  replicas: 1
+  roles:
+  - controller
+  storage:
+    type: jbod
+    volumes:
+    - id: 0
+      type: persistent-claim
+      size: 20Gi
+      class: platform-gp3
+      deleteClaim: false
+      kraftMetadata: shared
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      memory: 2Gi
+  template:
+    pod:
+      tolerations:
+      - key: workload
+        operator: Equal
+        value: kafka
+        effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: workload
+                operator: In
+                values:
+                - kafka
+              - key: topology.kubernetes.io/zone
+                operator: In
+                values:
+                - ap-northeast-2b

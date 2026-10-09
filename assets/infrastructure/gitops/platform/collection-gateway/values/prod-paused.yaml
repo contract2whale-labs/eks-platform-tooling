@@ -1,0 +1,9 @@
+# gitops/platform/collection-gateway/values/prod-paused.yaml
+# 비우기와 전환: 수집 게이트웨이의 트레이스 경로를 끕니다 (유입 중단). 관측 파이프라인 values/collector-gateway.yaml 뒤에 이 파일만 겹치면 트레이스를 뺀 나머지 경로(로그 · 지표)만 남습니다.
+# 원본 switch_files.py 가 만들던 gateway-paused.yaml 의 정적 버전입니다. 로그 · 지표 파이프라인은 건드리지 않으므로 그 수집은 계속됩니다.
+# exporter 는 여기서 지우지 않습니다 — 이 파일은 collector-gateway-traces.yaml 없이 겹치므로 otlp/traces exporter 가 애초에 없고, chart 0.173.1 은 config.exporters 의 값이 null 이면 렌더를 멈춥니다 (wrong type for value; expected map[string]interface {}).
+# 사용: helm upgrade collection-gateway <chart> -n observability --reset-values -f ../observability/values/collector-gateway.yaml -f values/collector-gateway-paused.yaml
+config:
+  service:
+    pipelines:
+      traces: null # 예: null (chart 기본 traces 파이프라인 제거; 파이프라인이 없으면 수신부의 트레이스는 버려짐 — 게이트웨이 큐에 남은 트레이스는 종료 전 flush)

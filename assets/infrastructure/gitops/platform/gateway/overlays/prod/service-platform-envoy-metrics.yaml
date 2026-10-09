@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: platform-envoy-metrics
+  namespace: platform-gateway
+  labels:
+    platform.example/metrics: envoy-proxy
+spec:
+  selector:
+    gateway.envoyproxy.io/owning-gateway-name: platform
+    gateway.envoyproxy.io/owning-gateway-namespace: platform-gateway
+  ports:
+  - name: metrics
+    port: 19001
+    targetPort: 19001

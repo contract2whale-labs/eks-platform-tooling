@@ -1,0 +1,12 @@
+# gitops/platform/velero-resources/overlays/prod/restore-request.yaml
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: platform-storage-probe
+  namespace: velero
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm
+spec:
+  backupName: platform-storage-probe               # 예: platform-storage-probe (backup-request.yaml의 metadata.name과 같아야 함)
+  namespaceMapping: {backup-probe: backup-probe-restored} # 예: 원본 네임스페이스의 객체를 복원 네임스페이스으로 보냄 (없으면 같은 이름에 섞임)
+  restorePVs: true                     # 예: true (스냅샷에서 새 볼륨을 만들어 PVC 에 연결)

@@ -1,0 +1,37 @@
+# gitops/clusters/dev/apps/commerce-api.yaml — 커머스 백엔드의 Argo CD Application
+# 이 wave는 부모가 자식 Application을 등록하는 순서입니다. 자동 sync를 켜지 않았으므로 실제 API→Web 동기화와 준비 확인은 앱 배포 편에서 따로 수행합니다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: commerce-api-dev                       # 예: commerce-api-dev (argocd app get commerce-api-dev)
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"          # 예: 플랫폼(정책 · CRD) 뒤
+spec:
+  project: delivery                            # 예: delivery (bootstrap/projects.yaml — 저장소 · 대상 · 리소스 타입 경계)
+  source:
+    repoURL: git@github.com:contract2whale-labs/cloud-platform-infrastructure.git # 예: 인프라 저장소 (repo Secret argocd-repo-gitops 의 url 과 같은 문자열)
+    targetRevision: main                       # 예: main (Git ref; 릴리스 ID 는 이 ref 의 커밋 SHA)
+    path: gitops/apps/commerce-api/overlays/dev # 예: Kustomize overlay
+  destination:
+    server: https://kubernetes.default.svc     # 예: 이 클러스터
+    namespace: contract2whale-demo                # 예: 앱 네임스페이스와 수집 허용 이 만드는 테넌트 네임스페이스 (Argo CD 가 만들지 않음)
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=false                  # 예: 네임스페이스는 앱 네임스페이스와 수집 허용 소유
+      - ServerSideApply=true                   # 예: server-side apply
+      - PruneLast=true                         # 예: 새 리소스가 정상이 된 뒤 옛 리소스 정리
+      - RespectIgnoreDifferences=true          # 예: ignoreDifferences 필드를 sync 때도 덮어쓰지 않음
+    retry:
+      limit: 2                                 # 예: 2 (동기화 실패 재시도 횟수)
+      backoff: {duration: 30s, factor: 2, maxDuration: 3m}
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      name: commerce-api-runtime
+      jsonPointers: ["/data"]                  # 예: ExternalSecret 이 채우는 값 (Git 에 없는 것을 diff 로 보지 않음)
+    - group: ""
+      kind: Secret
+      name: commerce-api-migration
+      jsonPointers: ["/data"]                  # 예: 같은 이유
+  revisionHistoryLimit: 5                      # 예: 5 (argocd app history · rollback 이 보는 버전 수)

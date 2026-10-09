@@ -1,0 +1,141 @@
+# gitops/platform/values/argo-cd.yaml
+# 동기화 엔진과 상태: Argo CD chart 10.9.0 (app v3.5.2) 의 환경 무관 Helm 값입니다. 환경별 값(SSO issuer · client ID · url)은 argo-cd-<env>.yaml(비민감 입력 PR), prod HA 프로파일은 argo-cd-prod-ha.yaml 입니다.
+# 로그인은 Cognito OIDC(SSO) 만 허용하고 로컬 admin 은 비활성화합니다. ID 토큰의 cognito:groups → Argo CD 역할: argocd-admins → role:admin, delivery-operators → role:delivery-operator.
+# 최소 bootstrap 뒤 정식 Argo Application이 이 값을 인수합니다. tracking · renderer · SSH trust · OCI 설정은 보존하고 OIDC 준비 후 admin을 비활성화합니다.
+global:
+  domain: argocd.argocd.svc.cluster.local # 예: 클러스터 내부 주소 (외부 노출 없음; port-forward 로 접속)
+  nodeSelector: {workload: system}         # 예: system 노드 그룹 (노드와 Add-on)
+  logging:
+    format: json                           # 예: json (운영 도구 Fluent Bit 가 필드로 읽음)
+    level: info                            # 예: info
+crds:
+  install: true                            # 예: true (Application · AppProject CRD 를 chart 가 설치)
+  keep: true                               # CRD는 일반 release 삭제와 분리해 보존
+configs:
+  cm:
+    admin.enabled: false                   # 예: false (로컬 admin 계정 비활성화 — 감사 추적은 SSO 계정으로)
+    exec.enabled: false                    # 예: false (UI 의 Pod exec 비활성화)
+    statusbadge.enabled: false             # 예: false
+    timeout.reconciliation: 180s           # 예: 180s (Git 을 다시 읽는 주기; 기본 120s)
+    kustomize.buildOptions: --enable-helm # 예: 등록된 Kustomize source의 pinned Helm chart를 렌더하도록 허용
+    application.resourceTrackingMethod: annotation
+  params:
+    server.insecure: true                  # 예: true (port-forward 안쪽 HTTP; 외부 노출 시 대시보드 내부 노출 규약대로 HTTPRoute + TLS)
+    controller.status.processors: "10"     # 예: 10 (앱 수 적은 규모)
+    controller.operation.processors: "5"   # 예: 5
+    reposerver.parallelism.limit: "2"      # 예: 2 (repo-server 동시 렌더 상한 — system 노드 여유)
+  rbac:
+    policy.default: role:readonly          # 예: 로그인한 계정의 기본 권한은 읽기 전용
+    scopes: "[cognito:groups, email]"      # 예: 역할 매핑에 쓰는 ID 토큰 claim (Cognito 그룹 · 이메일)
+    policy.csv: |                          # 예: 프로젝트 역할 — delivery 프로젝트의 앱만 sync · action, override 는 거부 (권한과 승인 제어)
+      p, role:delivery-operator, applications, get, delivery/*, allow
+      p, role:delivery-operator, applications, sync, delivery/*, allow
+      p, role:delivery-operator, applications, action/*, delivery/*, allow
+      p, role:delivery-operator, applications, override, delivery/*, deny
+      p, role:delivery-operator, logs, get, delivery/*, allow
+      p, role:delivery-operator, repositories, get, *, allow
+      g, argocd-admins, role:admin
+      g, delivery-operators, role:delivery-operator
+  secret:
+    createSecret: true                     # 예: true (argocd-secret 을 chart 가 만듦; 서버 서명 키 — OIDC client secret 은 ESO 가 만드는 별도 Secret)
+  ssh:
+    knownHosts: "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl\n\
+      github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=\n\
+      github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=\n"
+  repositories:
+    cert-manager:
+      name: cert-manager
+      type: helm
+      url: quay.io/jetstack/charts
+      enableOCI: 'true'
+controller:
+  replicas: 1                              # 예: 1 (단일 클러스터 — 샤딩 없음; prod 도 1)
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}   # 예: 250m · 512Mi (용량 표)
+    limits: {memory: 1Gi}                  # 예: 1Gi
+repoServer:
+  replicas: 1                              # 예: 1 (prod 프로파일 2)
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}   # 예: 100m · 256Mi
+    limits: {memory: 512Mi}                # 예: 512Mi
+  initContainers:
+  - name: pinned-renderers
+    image: REPLACE_WITH_PUBLISHED_TOOLCHAIN_IMAGE_DIGEST
+    command:
+    - sh
+    - -c
+    - cp /usr/local/bin/helm /usr/local/bin/kustomize /custom-tools/
+    volumeMounts:
+    - name: custom-tools
+      mountPath: /custom-tools
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+  volumes:
+  - name: custom-tools
+    emptyDir: {}
+  volumeMounts:
+  - name: custom-tools
+    mountPath: /usr/local/bin/helm
+    subPath: helm
+  - name: custom-tools
+    mountPath: /usr/local/bin/kustomize
+    subPath: kustomize
+server:
+  replicas: 1                              # 예: 1 (prod 프로파일 2)
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}   # 예: 100m · 128Mi
+    limits: {memory: 256Mi}                # 예: 256Mi
+  service:
+    type: ClusterIP                        # 예: ClusterIP (LoadBalancer · Ingress 없음 — 클러스터 보안 기반 VAP 와 같은 원칙)
+redis:
+  enabled: true                            # 예: true (단일 redis; prod 프로파일은 redis-ha)
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}     # 예: 50m · 64Mi
+    limits: {memory: 128Mi}                # 예: 128Mi
+applicationSet:
+  replicas: 1                              # 예: 1 (운영 환경 의 환경별 Application 생성에 대비)
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}    # 예: 50m · 128Mi
+    limits: {memory: 256Mi}                # 예: 256Mi
+dex:
+  enabled: false                           # 예: false (Cognito 를 직접 OIDC provider 로 사용 — Dex 중계 불필요)
+notifications:
+  enabled: true                            # 예: true (동기화 실패 · Degraded 를 운영 도구 Alertmanager 로 — Day-2 알림)
+  argocdUrl: http://localhost:8080         # 예: 알림 본문의 링크 (Dev port-forward 주소)
+  nodeSelector: {workload: system}         # 예: system 노드 그룹
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}     # 예: 50m · 64Mi
+    limits: {memory: 128Mi}                # 예: 128Mi
+  notifiers:
+    service.webhook.alertmanager: |        # 예: Alertmanager v2 API (kube-prometheus-stack 의 alertmanager-operated Service, 운영 도구/관측 파이프라인)
+      url: http://alertmanager-operated.monitoring.svc.cluster.local:9093/api/v2/alerts
+      headers:
+        - name: Content-Type
+          value: application/json
+  templates:
+    template.app-sync-failed: |            # 예: 동기화 실패 → Alertmanager 알림 (SNS 경로는 운영 도구 라우팅)
+      webhook:
+        alertmanager:
+          method: POST
+          body: |
+            [{"labels": {"alertname": "ArgoCDSyncFailed", "severity": "critical", "app": "{{.app.metadata.name}}", "namespace": "{{.app.spec.destination.namespace}}"}, "annotations": {"summary": "Argo CD sync of {{.app.metadata.name}} failed", "description": "{{.app.status.operationState.message}}"}}]
+    template.app-health-degraded: |        # 예: Degraded (PreSync 마이그레이션 Job 실패 · canary abort 뒤 상태)
+      webhook:
+        alertmanager:
+          method: POST
+          body: |
+            [{"labels": {"alertname": "ArgoCDAppDegraded", "severity": "warning", "app": "{{.app.metadata.name}}", "namespace": "{{.app.spec.destination.namespace}}"}, "annotations": {"summary": "Argo CD application {{.app.metadata.name}} is Degraded", "description": "{{.app.status.health.message}}"}}]
+  triggers:
+    trigger.on-sync-failed: |              # 예: 동기화 작업이 Error · Failed 로 끝났을 때 (PreSync 훅 실패 포함)
+      - when: app.status.operationState.phase in ['Error', 'Failed']
+        send: [app-sync-failed]
+    trigger.on-health-degraded: |          # 예: 헬스가 Degraded 로 바뀌었을 때
+      - when: app.status.health.status == 'Degraded'
+        send: [app-health-degraded]
+  subscriptions:
+  - recipients: ["webhook:alertmanager"]     # 예: 모든 Application 에 기본 구독 (앱 매니페스트에 annotation 을 따로 두지 않음)
+    triggers: [on-sync-failed, on-health-degraded]

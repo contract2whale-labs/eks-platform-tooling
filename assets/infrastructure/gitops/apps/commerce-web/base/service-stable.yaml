@@ -1,0 +1,15 @@
+# gitops/apps/commerce-web/base/service-stable.yaml — 안정(stable) 버전 스토어프런트 Pod 를 고르는 Service
+# selector 는 Rollout 의 Pod label 과 같아야 합니다. type 은 ClusterIP (클러스터 보안 기반 VAP tenant-clusterip-services).
+apiVersion: v1
+kind: Service
+metadata:
+  name: commerce-web-stable                     # 예: commerce-web-stable (Rollout strategy.canary.stableService · HTTPRoute backendRefs[0])
+  labels:
+    app.kubernetes.io/name: commerce-web        # 예: commerce-web
+    app.kubernetes.io/component: stable         # 예: stable
+spec:
+  type: ClusterIP                               # 예: ClusterIP
+  selector:
+    app.kubernetes.io/name: commerce-web        # 예: Pod label 과 같은 값 (Rollouts 가 pod-template-hash 를 추가)
+  ports:
+    - {name: http, port: 3000, targetPort: http, protocol: TCP} # 예: 3000

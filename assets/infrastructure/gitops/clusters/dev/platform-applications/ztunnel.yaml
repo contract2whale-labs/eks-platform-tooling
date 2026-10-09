@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-ztunnel-dev
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  project: platform
+  sources:
+    - repoURL: https://istio-release.storage.googleapis.com/charts
+      chart: ztunnel
+      targetRevision: 1.30.4
+      helm:
+        releaseName: ztunnel
+        valueFiles:
+          - $values/gitops/platform/ztunnel/values/dev.yaml
+    - repoURL: git@github.com:contract2whale-labs/cloud-platform-infrastructure.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  syncPolicy:
+    syncOptions:
+      - Prune=false
+      - Delete=false
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true

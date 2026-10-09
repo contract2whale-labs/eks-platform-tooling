@@ -1,0 +1,16 @@
+# gitops/platform/monitoring-resources/overlays/dev/52-queue-operator-monitor.yaml
+apiVersion: monitoring.coreos.com/v1 # 예: monitoring.coreos.com/v1
+kind: PodMonitor                     # 예: PodMonitor (Service 없이 Pod 포트를 직접 고름)
+metadata:
+  name: queue-operator               # 예: queue-operator (scrapePool podMonitor/messaging/queue-operator/0)
+  namespace: messaging               # 예: messaging
+  labels:
+    release: platform-monitoring     # 예: platform-monitoring (podMonitorSelector; monitoring-values 의 serviceMonitorSelector 와 같은 값)
+spec:
+  namespaceSelector:
+    matchNames: [messaging]          # 예: messaging
+  selector:
+    matchLabels:
+      strimzi.io/kind: cluster-operator # 예: 운영자 Pod 의 label
+  podMetricsEndpoints:
+    - {port: http, path: /metrics, interval: 30s} # 예: 컨테이너 포트 이름 http (8080)

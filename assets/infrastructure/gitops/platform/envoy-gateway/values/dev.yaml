@@ -1,0 +1,20 @@
+# gitops/platform/envoy-gateway/values/dev.yaml
+crds:
+  enabled: false # 예: false (Helm 이 CRD 를 만들지 않음; Gateway API·Envoy CRD는 platform-platform-crds-dev Application의 gitops/platform/platform-crds/overlays/dev가 먼저 관리)
+createNamespace: false # 예: false (Namespace 는 shared namespaces Application이 label과 함께 소유함)
+deployment:
+  replicas: 2 # 예: 2 (controller Pod 수)
+  envoyGateway:
+    resources:
+      requests: { cpu: 100m, memory: 256Mi } # 예: 요청
+      limits: { memory: 1Gi }                # 예: 상한
+podDisruptionBudget:
+  minAvailable: 1 # 예: 1 (중단 중에도 남겨 둘 controller 수)
+config:
+  envoyGateway:
+    gateway:
+      controllerName: gateway.envoyproxy.io/gatewayclass-controller # 예: GatewayClass.spec.controllerName 이 가리킬 이름
+    provider:
+      type: Kubernetes # 예: Kubernetes (Envoy 를 Kubernetes 리소스로 실행)
+    logging:
+      level: { default: info } # 예: controller 로그 수준

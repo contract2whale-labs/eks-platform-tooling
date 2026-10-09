@@ -1,0 +1,130 @@
+# gitops/platform/tempo/overlays/prod/values.yaml
+# 트레이스 파이프라인 연결: 트레이스 저장 · 조회(tempo-distributed chart 3.5.1 · Tempo 3.0.3 공식 이미지) 값입니다. Tempo 3.0 은 ingester 대신 Kafka 경로(distributor → 토픽 platform-traces → block-builder(S3 블록) · live-store(최근 조회))를 씁니다.
+fullnameOverride: platform-tempo # 예: platform-tempo (Service 이름 앞부분: platform-tempo-distributor · -query-frontend · -querier …)
+reportingEnabled: false          # 예: false (밖으로 나가는 사용량 보고 없음)
+
+tempo:
+  image:
+    repository: grafana/tempo # 예: grafana/tempo (공식 이미지)
+    tag: "3.0.3"              # 예: 3.0.3 (chart 3.5.1 의 appVersion; versions.env TEMPO_IMAGE_VERSION)
+  # 전송 · 조회 경로에 넣는 상한. 파티션 3 · block-builder 가 Kafka 에서 읽어 S3 에 씁니다.
+  structuredConfig:
+    ingest:
+      kafka:
+        auto_create_topic_enabled: false # 예: false (토픽은 55-queue-topic.yaml 이 선언; 브로커도 auto.create=false)
+
+defaults:
+  nodeSelector: {workload: observability} # 예: workload=observability
+  tolerations:
+    - {key: workload, operator: Equal, value: observability, effect: NoSchedule} # 예: 관측 노드의 taint
+
+serviceAccount:
+  create: false        # 예: false (tempo-identities가 공통 ServiceAccount를 소유; 이전 세대 제거 후에도 유지)
+  name: platform-tempo # 예: platform-tempo
+  automountServiceAccountToken: false # 예: false (API 토큰 불필요; Pod Identity 토큰은 웹훅이 따로 붙임)
+
+ingest:
+  kafka:
+    address: platform-queue-kafka-bootstrap.messaging.svc.cluster.local:9092 # 예: plain 리스너 (53-queue-cluster.yaml; NetworkPolicy 가 monitoring 만 허용)
+    topic: platform-traces                 # 예: platform-traces (메시지 큐 전환 인계 계약)
+    auto_create_topic_enabled: false       # 예: false
+    auto_create_topic_default_partitions: 3 # 예: 3 (blockBuilder.replicas · liveStore.replicas 와 같아야 함)
+
+traces:
+  otlp:
+    grpc: {enabled: true}
+    http: {enabled: false} # 예: false (게이트웨이만 보냄)
+
+distributor:
+  replicas: 2 # 예: 2 (AZ 분산; chart 기본 topologySpread)
+  resources:
+    requests: {cpu: 100m, memory: 256Mi} # 예: 요청량
+    limits: {memory: 512Mi}              # 예: 상한
+
+# Kafka 파티션마다 하나 — 3대. S3 블록을 쓰므로 traces_writer(SA platform-tempo-block-builder) 신원이 필요합니다.
+blockBuilder:
+  enabled: true # 예: true
+  replicas: 3   # 예: 3 (= 파티션 수)
+  resources:
+    requests: {cpu: 200m, memory: 512Mi} # 예: 요청량
+    limits: {memory: 1Gi}                # 예: 상한
+
+liveStore:
+  enabled: true # 예: true
+  replicas: 3   # 예: 3 (zone 하나의 크기 = 파티션 수)
+  resources:
+    requests: {cpu: 100m, memory: 384Mi} # 예: 요청량 (9대 = 0.9 vCPU · 3.4 GiB)
+    limits: {memory: 768Mi}              # 예: 상한
+  zoneAwareReplication:
+    enabled: true                            # 예: true (zone 마다 StatefulSet; rollout-operator 가 zone 단위로 갱신)
+    topologyKey: topology.kubernetes.io/zone # 예: AZ 키 (zone 끼리 겹치지 않게)
+    zones:
+      - name: zone-a
+        nodeSelector: {topology.kubernetes.io/zone: ap-northeast-2a} # 예: 2a 의 관측 노드
+      - name: zone-b
+        nodeSelector: {topology.kubernetes.io/zone: ap-northeast-2b} # 예: 2b
+      - name: zone-c
+        nodeSelector: {topology.kubernetes.io/zone: ap-northeast-2c} # 예: 2c
+rollout_operator:
+  enabled: true # 예: true (zone-aware StatefulSet(OnDelete) 의 갱신 · 축출 조정자; chart 서브차트)
+
+# 압축 · 보존 계획자(1대) 와 실행자(1대). 보존 30일(원본; 계약 S3 수명 주기 40일보다 짧아야 함 — check-retention-order.sh 가 대조).
+backendScheduler:
+  enabled: true # 예: true
+  config:
+    provider:
+      compaction:
+        compaction:
+          block_retention: 720h          # 예: 720h = 30일 (traces 블록 보존; S3 lifecycle 40일 < 이 값이면 안 됨)
+          compacted_block_retention: 1h  # 예: 1h
+  resources:
+    requests: {cpu: 100m, memory: 256Mi} # 예: 요청량
+    limits: {memory: 512Mi}              # 예: 상한
+backendWorker:
+  replicas: 1 # 예: 1
+  resources:
+    requests: {cpu: 200m, memory: 512Mi} # 예: 요청량
+    limits: {memory: 1Gi}                # 예: 상한
+
+querier:
+  replicas: 1 # 예: 1
+  resources:
+    requests: {cpu: 200m, memory: 512Mi} # 예: 요청량
+    limits: {memory: 1Gi}                # 예: 상한
+queryFrontend:
+  replicas: 1 # 예: 1 (계약 tempo_endpoint 의 대상; 72-tempo-active-query.yaml 의 Service 가 이 Pod 를 고름)
+  resources:
+    requests: {cpu: 100m, memory: 256Mi} # 예: 요청량
+    limits: {memory: 512Mi}              # 예: 상한
+
+metricsGenerator:
+  enabled: false
+
+# 캐시(memcached 3종)는 실습 규모에서 끕니다.
+memcached: {enabled: false}              # 예: false
+memcachedExporter: {enabled: false}      # 예: false
+memcachedBloom: {enabled: false}         # 예: false
+memcachedParquetFooter: {enabled: false} # 예: false
+memcachedFrontendSearch: {enabled: false} # 예: false
+cache:
+  caches: [] # 예: [] (캐시 없음)
+
+# 장기 저장: 계약의 traces 버킷 · 접두사(prod/traces; 역할 · 버킷 정책이 prod/* 밖을 거부). 자격 증명은 SDK 기본 경로(Pod Identity).
+storage:
+  trace:
+    backend: s3 # 예: s3
+    s3:
+      bucket: example-prod-traces-bucket     # 예: cp-prod-observability-traces-<계정>-ap-northeast-2 (계약 traces_bucket)
+      prefix: prod/traces     # 예: prod/traces (계약; 빼면 403)
+      region: ap-northeast-2            # 예: ap-northeast-2
+      endpoint: s3.ap-northeast-2.amazonaws.com
+      forcepathstyle: false # 예: false (가상 호스트 방식)
+
+metaMonitoring:
+  serviceMonitor:
+    enabled: true                             # 예: true (구성 요소마다 ServiceMonitor)
+    labels: {release: platform-monitoring}    # 예: platform-monitoring (serviceMonitorSelector)
+    interval: 30s                             # 예: 30s
+
+server:
+  logLevel: info # 예: info

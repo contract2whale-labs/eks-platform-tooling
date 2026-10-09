@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: contract2whale-demo
+resources:
+- ../../base
+images:
+- digest: 
+    sha256:0000000000000000000000000000000000000000000000000000000000000000
+  name: commerce-api
+  newName: 111111111111.dkr.ecr.ap-northeast-2.amazonaws.com/commerce-api
+configMapGenerator:
+- literals:
+  - RELEASE_DIGEST=set-by-kustomize-replacements
+  - NODE_ENV=production
+  - PORT=9000
+  - LOG_LEVEL=http
+  - DB_SSL=true
+  - DB_POOL_MIN=2
+  - DB_POOL_MAX=10
+  - MEDUSA_WORKER_MODE=shared
+  - MEDUSA_BACKEND_URL=https://dev.replace.example
+  - STORE_CORS=https://dev.replace.example
+  - ADMIN_CORS=https://dev.replace.example
+  - AUTH_CORS=https://dev.replace.example
+  - AWS_REGION=ap-northeast-2
+  - S3_BUCKET=cp-dev-app-exports-111111111111-ap-northeast-2
+  - S3_FILE_URL=https://cp-dev-app-exports-111111111111-ap-northeast-2.s3.ap-northeast-2.amazonaws.com
+  - S3_PREFIX=exports/dev/commerce-api/
+  - OTEL_SERVICE_NAME=commerce-api
+  - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+  - OTEL_EXPORTER_OTLP_ENDPOINT=http://collection-gateway.observability.svc.cluster.local:4317
+  - OTEL_RESOURCE_ATTRIBUTES_BASE=deployment.environment=dev,service.namespace=contract2whale-demo
+  name: commerce-api-config
+replacements:
+- source:
+    fieldPath: spec.template.spec.containers.[name=commerce-api].image
+    kind: Deployment
+    name: commerce-api
+    options:
+      delimiter: '@'
+      index: 1
+  targets:
+  - fieldPaths:
+    - data.RELEASE_DIGEST
+    select:
+      kind: ConfigMap
+      name: commerce-api-config
+patches:
+- path: runtime-config.patch.yaml
+- path: secretstore.patch.yaml
+- path: externalsecret.patch.yaml
+- path: route-hostname.patch.yaml
+  target:
+    group: gateway.networking.k8s.io
+    version: v1
+    kind: HTTPRoute

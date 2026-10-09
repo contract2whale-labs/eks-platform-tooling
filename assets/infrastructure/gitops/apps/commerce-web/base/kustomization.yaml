@@ -1,0 +1,15 @@
+# gitops/apps/commerce-web/base/kustomization.yaml — 스토어프런트의 환경 무관 선언 묶음
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - rollout.yaml                               # 예: Argo Rollouts Rollout (canary — Gateway API 가중치 + 판정)
+  - service-stable.yaml                        # 예: 안정 버전 Service 3000
+  - service-canary.yaml                        # 예: canary 버전 Service 3000
+  - httproute-ui.yaml                          # 예: 스토어프런트 경로 HTTPRoute (stable · canary backendRefs)
+  - analysis-template.yaml                     # 예: 판정 틀 2개 (Envoy 라우트의 5xx 비율 · p95)
+configurations:
+  - rollout-transform.yaml                     # 예: Rollout 의 ConfigMap · Secret 참조 이름을 Kustomize 변환 대상에 추가 (CRD 라 기본값에 없음)
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: contract2whale   # 예: contract2whale (앱 묶음 표시; selector 에는 넣지 않음)
+    includeSelectors: false

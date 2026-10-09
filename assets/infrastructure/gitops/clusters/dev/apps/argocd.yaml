@@ -1,0 +1,36 @@
+# gitops/clusters/dev/apps/argocd.yaml
+# 동기화 엔진과 상태: Argo CD 가 자기 자신을 관리하는 Application 입니다. bootstrap.py의 release를 같은 chart 버전으로 인수합니다. CRD 보호·추적·renderer·known_hosts와 실제 Secret 준비를 확인하고 승인 revision을 수동 동기화합니다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd                                 # 예: argocd
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"         # 예: 다른 플랫폼 앱보다 먼저 (자기 값 정합)
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm
+spec:
+  project: platform
+  sources:
+  - repoURL: https://argoproj.github.io/argo-helm   # 예: 공식 Helm 저장소 (AppProject platform 의 sourceRepos)
+    chart: argo-cd                             # 예: chart 이름
+    targetRevision: 10.9.0                     # 예: chart 버전 (app v3.5.2) — 버전 고정
+    helm:
+      releaseName: argocd                      # 예: bootstrap.py의 Helm release 이름과 같아야 리소스를 이어받음
+      valueFiles:
+      - $values/gitops/platform/values/argo-cd.yaml         # 예: 환경 무관 값
+      - $values/gitops/platform/values/argo-cd-dev.yaml     # 예: 환경별 값 (SSO issuer · client ID · url)
+  - repoURL: 
+      git@github.com:contract2whale-labs/cloud-platform-infrastructure.git          # 예: 값 파일이 있는 인프라 저장소
+    targetRevision: main
+    ref: values                                # 예: 위 $values 참조 이름
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    syncOptions:
+    - ServerSideApply=true                     # 예: CRD 크기 · helm 설치본 이어받기
+    - RespectIgnoreDifferences=true
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers: [/spec/replicas]             # 예: HPA · 수동 스케일 차이는 무시 (prod 프로파일)

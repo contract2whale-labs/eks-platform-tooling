@@ -1,0 +1,19 @@
+# terraform.tfvars.example — prod account-baseline 루트 모듈
+# terraform.tfvars 로 복사한 뒤 계정 ID · 버킷 · 운영자 역할 ARN 을 work/lab.env 의 Prod 값으로 바꿉니다. terraform.tfvars 는 커밋하지 않습니다.
+
+expected_account_id = "222222222222"                      # 예: work/lab.env 의 PROD_ACCOUNT_ID (12자리)
+region              = "ap-northeast-2"                    # 예: "ap-northeast-2" (work/lab.env 의 AWS_REGION)
+environment         = "prod"                              # 예: "prod" (역할 이름이 cp-prod-terraform-state 가 됩니다)
+state_bucket_name   = "company-prod-tfstate-222222222222" # 예: work/lab.env 의 PROD_STATE_BUCKET (backend.hcl 의 bucket 과 같은 값)
+
+# 02-AWS-SETUP 13절에서 확인한 Prod 계정의 영구 IAM 역할 ARN 입니다 (work/lab.env 의 PROD_OPERATOR_ROLE_ARN). Dev 값을 복사하지 않습니다.
+trusted_principal_arns = ["arn:aws:iam::222222222222:role/aws-reserved/sso.amazonaws.com/ap-northeast-2/AWSReservedSSO_InfrastructureProvisioner_0123456789abcdef"]
+
+# 아래 세 값은 기본값을 유지합니다. 조직 정책상 boundary 가 필수이면 승인된 policy ARN 을 넣습니다.
+additional_state_object_keys = []    # 예: [] (후속 루트 모듈 key 는 해당 챕터에서 정확한 경로로 추가)
+permissions_boundary_arn     = null  # 예: null (미부착) / "arn:aws:iam::222222222222:policy/PlatformBoundary"
+manage_iam_password_policy   = false # 예: false (계정 전역 암호 정책 소유권을 인수하지 않음)
+
+# Prod 의 GitHub OIDC 생성 여부는 production 에서 Prod 계정을 조회해 정합니다. account 는 코드만 배치하고 기본값(미생성)을 유지합니다.
+create_github_oidc                = false # 예: false (production 에서 aws iam list-open-id-connect-providers 결과로 변경)
+existing_github_oidc_provider_arn = null  # 예: null

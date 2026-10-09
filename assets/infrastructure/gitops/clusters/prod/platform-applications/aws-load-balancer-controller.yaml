@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-aws-load-balancer-controller-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm
+spec:
+  project: platform
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    syncOptions:
+    - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
+  sources:
+  - repoURL: https://aws.github.io/eks-charts
+    chart: aws-load-balancer-controller
+    targetRevision: 3.5.0
+    helm:
+      releaseName: aws-load-balancer-controller
+      valueFiles:
+      - $values/gitops/platform/aws-load-balancer-controller/values/prod.yaml
+      - $values/gitops/platform/aws-load-balancer-controller/values/prod-infrastructure.yaml
+      skipCrds: true
+  - repoURL: git@github.com:contract2whale-labs/cloud-platform-infrastructure.git
+    targetRevision: main
+    ref: values

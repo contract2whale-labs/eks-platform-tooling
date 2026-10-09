@@ -1,0 +1,50 @@
+# gitops/platform/strimzi/values/prod.yaml
+# 메시지 큐 운영자와 노드 풀: 메시지 큐 운영자(strimzi-kafka-operator chart 1.2.0 · quay.io/strimzi/operator:1.2.0) 값입니다. 브로커를 만들지 않고 운영자 한 대만 만듭니다.
+# 관리 범위를 두 축으로 좁힙니다 — 네임스페이스 목록(messaging 하나) + 선언 선택 label(platform-managed=queue). 원본 operations/values/queue-operator.yaml 과 같은 내용입니다.
+watchAnyNamespace: false # 예: false (클러스터 전체를 보지 않음; true 면 아래 목록이 무시됨)
+watchNamespaces:
+  - messaging # 예: messaging (50-queue-namespace.yaml; 메시지 큐 선언이 들어갈 유일한 네임스페이스)
+
+replicas: 1 # 예: 1 (조정 주체 하나)
+leaderElection:
+  enable: true # 예: true (대수를 늘려도 동시에 조정하지 않음)
+
+image:
+  registry: quay.io   # 예: quay.io
+  repository: strimzi # 예: strimzi
+  name: operator      # 예: operator
+  tag: "1.2.0"        # 예: 1.2.0 (chart appVersion 과 같은 버전; versions.env STRIMZI_VERSION)
+  imagePullPolicy: IfNotPresent # 예: IfNotPresent
+
+createGlobalResources: true # 예: true (공통 ClusterRole · 전역 binding 설치; 검증 3 의 strimzi-cluster-operator-global)
+rbac:
+  create: true # 예: true
+serviceAccountCreate: true # 예: true (SA strimzi-cluster-operator)
+
+fullReconciliationIntervalMs: 120000 # 예: 120000 (2분마다 선언 · 실제 대조)
+operationTimeoutMs: 300000           # 예: 300000 (5분)
+logLevel: INFO                       # 예: INFO
+
+# 상위 CR(Kafka · KafkaNodePool · KafkaUser · KafkaTopic)의 선택 label 입니다. 이 label 이 없는 선언은 조정되지 않습니다.
+extraEnvs:
+  - name: STRIMZI_CUSTOM_RESOURCE_SELECTOR # 예: 조정 대상을 고르는 label 을 넘기는 환경 변수
+    value: platform-managed=queue          # 예: platform-managed=queue
+
+nodeSelector: {workload: observability} # 예: workload=observability
+tolerations:
+  - {key: workload, operator: Equal, value: observability, effect: NoSchedule} # 예: 관측 노드의 taint 를 견딤
+
+resources:
+  requests: {cpu: 200m, memory: 384Mi} # 예: 요청량
+  limits: {memory: 768Mi}              # 예: 메모리 상한 (chart 기본 cpu 상한 1000m 은 두지 않음)
+
+podSecurityContext:
+  runAsNonRoot: true                    # 예: true
+  seccompProfile: {type: RuntimeDefault} # 예: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false # 예: false
+  readOnlyRootFilesystem: true    # 예: true
+  capabilities: {drop: ["ALL"]}   # 예: 모두 내림
+
+dashboards:
+  enabled: false # 예: false

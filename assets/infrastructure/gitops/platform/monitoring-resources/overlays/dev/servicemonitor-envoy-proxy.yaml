@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: envoy-proxy
+  namespace: monitoring
+  labels:
+    release: platform-monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+    - platform-gateway
+  selector:
+    matchLabels:
+      platform.example/metrics: envoy-proxy
+  endpoints:
+  - port: metrics
+    path: /stats/prometheus
+    interval: 30s

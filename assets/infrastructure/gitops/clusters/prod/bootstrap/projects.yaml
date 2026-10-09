@@ -1,0 +1,74 @@
+# gitops/clusters/prod/bootstrap/projects.yaml
+# platform: 플랫폼 컴포넌트(Argo CD 자신 · Kyverno · Rollouts · Reloader · 정책) — 현재 플랫폼의 승인된 공식 chart 저장소와 인프라 저장소만, 모든 네임스페이스 · 클러스터 범위 리소스 허용.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform                               # 예: platform (루트 Application · 플랫폼 자식 Application 의 project)
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io     # 예: 프로젝트 삭제 시 소속 Application 을 먼저 정리
+spec:
+  description: Platform components managed by the App-of-Apps root application # 예: 설명
+  sourceRepos:
+  - docker.io/envoyproxy
+  - git@github.com:contract2whale-labs/cloud-platform-infrastructure.git
+  - https://argoproj.github.io/argo-helm
+  - https://aws.github.io/eks-charts
+  - https://charts.external-secrets.io
+  - https://fluent.github.io/helm-charts
+  - https://grafana-community.github.io/helm-charts
+  - https://istio-release.storage.googleapis.com/charts
+  - https://kubernetes-sigs.github.io/external-dns/
+  - https://kubernetes-sigs.github.io/metrics-server/
+  - https://kubernetes.github.io/autoscaler
+  - https://kyverno.github.io/kyverno/
+  - https://open-telemetry.github.io/opentelemetry-helm-charts
+  - https://prometheus-community.github.io/helm-charts
+  - https://stakater.github.io/stakater-charts
+  - https://strimzi.io/charts/
+  - https://vmware-tanzu.github.io/helm-charts
+  - quay.io/jetstack/charts
+  destinations:
+  - server: https://kubernetes.default.svc     # 예: 이 클러스터
+    namespace: "*"                             # 예: 플랫폼 네임스페이스 전부 (argocd · kyverno · argo-rollouts · reloader)
+  clusterResourceWhitelist:
+  - {group: "*", kind: "*"}                    # 예: CRD · ClusterRole · ClusterPolicy · Namespace (플랫폼 컴포넌트에 필요)
+  namespaceResourceWhitelist:
+  - {group: "*", kind: "*"}                    # 예: 네임스페이스 리소스 전부
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: delivery                               # 예: delivery (Application commerce-web-* · commerce-api-* 의 project · RBAC policy 의 프로젝트 이름)
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Application delivery from gitops/apps to the tenant namespace # 예: 설명
+  sourceRepos:
+  - git@github.com:contract2whale-labs/cloud-platform-infrastructure.git   # 예: 인프라 저장소만 (다른 저장소를 가리키는 Application 은 거부)
+  destinations:
+  - server: https://kubernetes.default.svc     # 예: 이 클러스터
+    namespace: contract2whale-demo                # 예: 앱 네임스페이스와 수집 허용 이 만드는 테넌트 네임스페이스 (다른 네임스페이스는 거부)
+  clusterResourceWhitelist: []                 # 예: 클러스터 범위 리소스 없음 (Namespace · CRD · ClusterRole 을 앱이 만들 수 없음)
+  namespaceResourceWhitelist:
+  - {group: argoproj.io, kind: Rollout}            # 예: 스토어프런트의 canary 배포 리소스 (commerce-web)
+  - {group: argoproj.io, kind: AnalysisTemplate}   # 예: 판정 틀 2개 (Envoy 라우트의 5xx 비율 · p95)
+  - {group: apps, kind: Deployment}                # 예: 백엔드의 배포 리소스 (commerce-api — canary 없이 RollingUpdate)
+  - {group: "", kind: Service}                     # 예: ClusterIP Service 3개 (web stable · web canary · api; 클러스터 보안 기반 VAP 가 타입을 검사)
+  - {group: "", kind: ConfigMap}                   # 예: 앱 설정 2개 (Kustomize configMapGenerator)
+  - {group: batch, kind: Job}                      # 예: PreSync 마이그레이션 Job
+  - {group: external-secrets.io, kind: SecretStore}      # 예: Secrets Manager 를 읽을 자리 (앱 네임스페이스)
+  - {group: external-secrets.io, kind: ExternalSecret}   # 예: DB · Redis · 앱 시크릿을 Secret 으로 복사하는 선언 2개
+  - {group: gateway.networking.k8s.io, kind: HTTPRoute}    # 예: 앱 HTTPRoute (app-ui · app-store · app-api; canary weight 는 Rollouts 가 조정)
+  roles:
+  - name: operator                             # 예: operator (프로젝트 역할; Argo CD RBAC 의 proj:delivery:operator)
+    description: Sync and roll back the delivery applications; no override, no 
+      repository changes                                                                            # 예: 설명
+    policies:
+    - p, proj:delivery:operator, applications, get, delivery/*, allow          # 예: 조회
+    - p, proj:delivery:operator, applications, sync, delivery/*, allow         # 예: 동기화
+    - p, proj:delivery:operator, applications, action/*, delivery/*, allow     # 예: 리소스 동작 (rollout 재시작 · 승격)
+    - p, proj:delivery:operator, applications, override, delivery/*, deny      # 예: 매니페스트 임의 덮어쓰기 거부 (Git 밖의 상태 금지)
+    groups:
+    - delivery-operators                       # 예: Cognito 그룹 delivery-operators (values/argo-cd.yaml 의 policy.csv 와 같은 이름)

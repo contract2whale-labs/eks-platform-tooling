@@ -1,0 +1,29 @@
+name: Build reviewed toolchain
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+concurrency:
+  group: platform-toolchain
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Publish immutable Linux amd64 build
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          OWNER="$(printf '%s' "$REGISTRY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          IMAGE="ghcr.io/$OWNER/platform-toolchain"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$REGISTRY_USER" --password-stdin
+          docker buildx build --platform linux/amd64 --push --tag "$IMAGE:$GITHUB_SHA" --metadata-file build-metadata.json tooling
+          python3 -c 'import json,os; d=json.load(open("build-metadata.json")); print("Published digest: "+d["containerimage.digest"]); print("Set TOOLCHAIN_IMAGE to ghcr.io/"+os.environ["REGISTRY_OWNER"].lower()+"/platform-toolchain@"+d["containerimage.digest"])' >> "$GITHUB_STEP_SUMMARY"

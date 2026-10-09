@@ -1,0 +1,69 @@
+# 작은 weight부터 생성하고 큰 weight부터 정리합니다.
+# 열: weight · 완료 지점 · kind · target · account · status · note (탭 구분)
+# retain은 State/DNS 보존, ready는 리뷰 대상 실행 단계입니다.
+0	STATE_FOUNDATION	tf	dev/bootstrap/state	dev	retain	승인한 plan으로 AWS 인프라 변경
+1	STATE_FOUNDATION	tf	prod/bootstrap/state	prod	retain	승인한 plan으로 AWS 인프라 변경
+10	VPC_NETWORK	tf	dev/network/vpc	dev	ready	승인한 plan으로 AWS 인프라 변경
+10	PRODUCTION_PLATFORM	tf	prod/network/vpc	prod	ready	승인한 plan으로 AWS 인프라 변경
+18	ACCOUNT_BASELINE	tf	dev/account-baseline-dns	dev	retain	승인한 plan으로 AWS 인프라 변경
+18	ACCOUNT_BASELINE	tf	prod/account-baseline-dns	prod	retain	승인한 plan으로 AWS 인프라 변경
+20	ACCOUNT_BASELINE	tf	dev/account-baseline	dev	ready	승인한 plan으로 AWS 인프라 변경
+20	ACCOUNT_BASELINE	tf	prod/account-baseline	prod	ready	승인한 plan으로 AWS 인프라 변경
+30	TRANSIT_NETWORK	tf	dev/network/peer	dev	ready	승인한 plan으로 AWS 인프라 변경
+40	TRANSIT_NETWORK	tf	dev/network/transit	dev	ready	승인한 plan으로 AWS 인프라 변경
+45	CLUSTER_CONTROL	tf	dev/platform/private-api	dev	ready	승인한 plan으로 AWS 인프라 변경
+45	PRODUCTION_PLATFORM	tf	prod/platform/private-api	prod	ready	승인한 plan으로 AWS 인프라 변경
+49	CLUSTER_CONTROL	vol-clean	dev	dev	ready	클러스터 삭제 뒤 승인한 EBS만 정리
+49	PRODUCTION_PLATFORM	vol-clean	prod	prod	ready	클러스터 삭제 뒤 승인한 EBS만 정리
+50	CLUSTER_CONTROL	tf	dev/eks	dev	ready	승인한 plan으로 AWS 인프라 변경
+50	PRODUCTION_PLATFORM	tf	prod/eks	prod	ready	승인한 plan으로 AWS 인프라 변경
+60	CORE_GUARDRAILS	tf	dev/platform/core	dev	ready	승인한 plan으로 AWS 인프라 변경
+65	CORE_GUARDRAILS	hook	platform-core	dev	ready	승인한 Git revision으로 GitOps 수명주기 실행
+67	SERVICE_MESH	hook	platform-mesh	dev	ready	승인한 Git revision으로 GitOps 수명주기 실행
+60	PRODUCTION_PLATFORM	tf	prod/platform/core	prod	ready	승인한 plan으로 AWS 인프라 변경
+70	SERVICE_EXPOSURE	tf	dev/platform/gateway	dev	ready	승인한 plan으로 AWS 인프라 변경
+71	SERVICE_EXPOSURE	hook	platform-gateway	dev	ready	승인한 Git revision으로 GitOps 수명주기 실행
+73	SERVICE_EXPOSURE	tf	dev/platform/edge	dev	ready	승인한 plan으로 AWS 인프라 변경
+70	PRODUCTION_PLATFORM	tf	prod/platform/gateway	prod	ready	승인한 plan으로 AWS 인프라 변경
+72	SERVICE_EXPOSURE	tf	dev/platform/app-auth	dev	ready	승인한 plan으로 AWS 인프라 변경
+72	PRODUCTION_PLATFORM	tf	prod/platform/app-auth	prod	ready	승인한 plan으로 AWS 인프라 변경
+80	OPERATIONS	tf	dev/platform/operations	dev	ready	승인한 plan으로 AWS 인프라 변경
+83	OPERATIONS	hook	platform-operations	dev	ready	승인한 Git revision으로 GitOps 수명주기 실행
+80	PRODUCTION_PLATFORM	tf	prod/platform/operations	prod	ready	승인한 plan으로 AWS 인프라 변경
+85	OPERATIONS	tf	dev/platform/alerting	dev	ready	승인한 plan으로 AWS 인프라 변경
+87	OPERATIONS	hook	platform-alerting	dev	ready	승인한 Git revision으로 GitOps 수명주기 실행
+85	PRODUCTION_PLATFORM	tf	prod/platform/alerting	prod	ready	승인한 plan으로 AWS 인프라 변경
+90	OBSERVABILITY	tf	dev/platform/observability	dev	ready	승인한 plan으로 AWS 인프라 변경
+91	OBSERVABILITY	hook	platform-observability	dev	ready	승인한 Git revision으로 GitOps 수명주기 실행
+90	PRODUCTION_PLATFORM	tf	prod/platform/observability	prod	ready	승인한 plan으로 AWS 인프라 변경
+91	PRODUCTION_PLATFORM	hook	platform-observability	prod	ready	승인한 Git revision으로 GitOps 수명주기 실행
+100	QUEUE_TRANSITION	tf	dev/platform/queue	dev	ready	승인한 plan으로 AWS 인프라 변경
+100.6	QUEUE_TRANSITION	tf	dev/platform/queue-association	dev	ready	승인한 plan으로 AWS 인프라 변경
+100.3	QUEUE_TRANSITION	tf	dev/platform/queue-secrets	dev	ready	승인한 plan으로 AWS 인프라 변경
+101	QUEUE_TRANSITION	hook	platform-queue	dev	ready	승인한 Git revision으로 GitOps 수명주기 실행
+100	PRODUCTION_PLATFORM	tf	prod/platform/queue	prod	ready	승인한 plan으로 AWS 인프라 변경
+100.6	PRODUCTION_PLATFORM	tf	prod/platform/queue-association	prod	ready	승인한 plan으로 AWS 인프라 변경
+100.3	PRODUCTION_PLATFORM	tf	prod/platform/queue-secrets	prod	ready	승인한 plan으로 AWS 인프라 변경
+110	ACCOUNT_INTEGRATIONS	tf	dev/account-integrations	dev	ready	승인한 plan으로 AWS 인프라 변경
+120	DELIVERY_PLATFORM	tf	dev/delivery	dev	ready	승인한 plan으로 AWS 인프라 변경
+122	DELIVERY_PLATFORM	hook	platform-delivery	dev	ready	승인한 Git revision으로 GitOps 수명주기 실행
+120	PRODUCTION_PLATFORM	tf	prod/delivery	prod	ready	승인한 plan으로 AWS 인프라 변경
+130	APPLICATION_DATA	tf	dev/data	dev	ready	승인한 plan으로 AWS 인프라 변경
+130	PRODUCTION_PLATFORM	tf	prod/data	prod	ready	승인한 plan으로 AWS 인프라 변경
+140	APPLICATION_DATA	tf	dev/identity	dev	ready	승인한 plan으로 AWS 인프라 변경
+140	PRODUCTION_PLATFORM	tf	prod/identity	prod	ready	승인한 plan으로 AWS 인프라 변경
+142	APPLICATION_DATA	hook	application-namespace	dev	ready	승인한 Git revision으로 GitOps 수명주기 실행
+144	APPLICATION_DATA	hook	database-bootstrap	dev	ready	승인한 Git revision으로 GitOps 수명주기 실행
+180	SERVICE_EXPOSURE	tf	dev/platform/dev-app-access	dev	ready	승인한 plan으로 AWS 인프라 변경
+200	PRODUCTION_PLATFORM	tf	prod/platform/edge	prod	ready	승인한 plan으로 AWS 인프라 변경
+64	CLUSTER_CONTROL	k8s-clean	dev	dev	ready	플랫폼 퇴역 뒤 LB 잔존 확인과 승인한 EBS 목록 기록
+64	PRODUCTION_PLATFORM	k8s-clean	prod	prod	ready	플랫폼 퇴역 뒤 LB 잔존 확인과 승인한 EBS 목록 기록
+65	PRODUCTION_PLATFORM	hook	platform-core	prod	ready	승인한 Git revision으로 GitOps 수명주기 실행
+67	PRODUCTION_PLATFORM	hook	platform-mesh	prod	ready	승인한 Git revision으로 GitOps 수명주기 실행
+71	PRODUCTION_PLATFORM	hook	platform-gateway	prod	ready	승인한 Git revision으로 GitOps 수명주기 실행
+83	PRODUCTION_PLATFORM	hook	platform-operations	prod	ready	승인한 Git revision으로 GitOps 수명주기 실행
+87	PRODUCTION_PLATFORM	hook	platform-alerting	prod	ready	승인한 Git revision으로 GitOps 수명주기 실행
+101	PRODUCTION_PLATFORM	hook	platform-queue	prod	ready	승인한 Git revision으로 GitOps 수명주기 실행
+122	PRODUCTION_PLATFORM	hook	platform-delivery	prod	ready	승인한 Git revision으로 GitOps 수명주기 실행
+142	PRODUCTION_PLATFORM	hook	application-namespace	prod	ready	승인한 Git revision으로 GitOps 수명주기 실행
+144	PRODUCTION_PLATFORM	hook	database-bootstrap	prod	ready	승인한 Git revision으로 GitOps 수명주기 실행

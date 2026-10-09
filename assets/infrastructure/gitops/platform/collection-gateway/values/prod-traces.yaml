@@ -1,0 +1,15 @@
+# gitops/platform/collection-gateway/values/prod-traces.yaml
+config:
+  exporters:
+    # 트레이스는 Tempo distributor 의 OTLP gRPC 수신부로 보냅니다. 계약의 tempo_endpoint(조회 주소 3200)가 아니라 수신부 주소(4317)입니다.
+    otlp/traces:
+      endpoint: platform-tempo-e3-distributor.monitoring.svc.cluster.local:4317 # 예: platform-tempo-distributor (release platform-tempo 의 distributor Service)
+      tls: {insecure: true} # 예: true (클러스터 안 평문; observability · monitoring 은 메시 밖)
+      sending_queue: {enabled: true, num_consumers: 4, queue_size: 500}                                 # 예: 로그와 별도 큐 (프로세스 메모리는 공유)
+      retry_on_failure: {enabled: true, initial_interval: 1s, max_interval: 30s, max_elapsed_time: 5m} # 예: 5분 뒤 버림
+  service:
+    pipelines:
+      traces:
+        receivers: [otlp]                             # 예: 로그와 같은 수신부
+        processors: [memory_limiter, attributes/drop-sensitive-headers, resource, batch] # 예: 메모리 제한 뒤 민감 헤더 삭제, resource 보강, batch
+        exporters: [otlp/traces]                      # 예: Tempo distributor 로만

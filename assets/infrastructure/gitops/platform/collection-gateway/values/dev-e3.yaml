@@ -1,0 +1,16 @@
+# gitops/platform/collection-gateway/values/dev-e3.yaml
+# 전환 검증과 복귀: 복귀 — 트레이스를 epoch 3(자체 구축 큐 복귀) release 의 distributor 로 보냅니다.
+# 적용: platform-collection-gateway-dev의 승인한 sources[0].helm.valueFiles를 dev.yaml + dev-e3.yaml로 변경하고, 고정 chart와 승인 Git revision을 수동 동기화합니다.
+config:
+  exporters:
+    otlp/traces:
+      endpoint: platform-tempo-e3-distributor.monitoring.svc.cluster.local:4317 # 예: release platform-tempo-e3 의 distributor Service
+      tls: {insecure: true}
+      sending_queue: {enabled: true, num_consumers: 4, queue_size: 500}
+      retry_on_failure: {enabled: true, initial_interval: 1s, max_interval: 30s, max_elapsed_time: 5m}
+  service:
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [memory_limiter, attributes/drop-sensitive-headers, resource, batch]
+        exporters: [otlp/traces]

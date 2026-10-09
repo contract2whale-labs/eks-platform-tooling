@@ -1,0 +1,24 @@
+# gitops/platform/values/reloader.yaml
+# 마이그레이션 실행과 재기동 (Day-2): stakater/reloader chart 2.2.17 (app v1.4.22). Secret · ConfigMap 이 바뀌면 그것을 참조하는 워크로드를 롤링 재기동합니다 — ESO 가 Secrets Manager 회전을 반영해도 실행 중인 Pod 는 옛 값을 메모리에 들고 있으므로 필요합니다.
+# Rollout(Argo Rollouts CRD)을 지원하려면 isArgoRollouts 를 켭니다. 앱 쪽은 Rollout · Deployment 에 annotation reloader.stakater.com/auto: "true" 를 둡니다 (gitops/apps/commerce-web/base/rollout.yaml · gitops/apps/commerce-api/base/deployment.yaml).
+reloader:
+  watchGlobally: true                  # 예: true (모든 네임스페이스 감시 — 테넌트가 늘어도 설정 변경 없음)
+  isArgoRollouts: true                 # 예: true (Deployment 뿐 아니라 Rollout 도 재기동 대상)
+  autoReloadAll: false                 # 예: false (annotation 이 있는 워크로드만 — 의도치 않은 재기동 방지)
+  reloadStrategy: annotations          # 예: annotations (Pod 템플릿 annotation 에 해시를 적어 재기동 — env-vars 방식보다 diff 가 명확)
+  deployment:
+    replicas: 1                        # 예: 1
+    nodeSelector: {workload: system}   # 예: system 노드 그룹
+    resources:
+      requests: {cpu: 20m, memory: 64Mi} # 예: 20m · 64Mi (용량 표)
+      limits: {memory: 128Mi}          # 예: 128Mi
+    securityContext:
+      runAsNonRoot: true               # 예: restricted PSA
+      runAsUser: 65534
+      seccompProfile: {type: RuntimeDefault}
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities: {drop: [ALL]}
+  podMonitor:
+    enabled: false                     # 예: false (수집 선언은 앱 관측 계약 이 판단)

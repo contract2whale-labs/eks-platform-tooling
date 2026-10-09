@@ -1,0 +1,26 @@
+# gitops/platform/external-secrets/values/dev.yaml
+replicaCount: 1                        # 예: 1 (controller Pod 개수)
+serviceAccount:
+  create: true                         # 예: true (chart 가 ServiceAccount 를 만듭니다)
+  name: external-secrets               # 예: external-secrets (Pod Identity 연결의 service_account 와 같은 이름; annotation 없음)
+scopedNamespace: ""                    # 예: 비움 = 모든 네임스페이스의 SecretStore · ExternalSecret 을 처리 (클러스터에 컨트롤러 하나; 배포 플랫폼 의 argocd 네임스페이스도 같은 컨트롤러가 담당 — 권한 분리는 SecretStore 의 role 로)
+scopedRBAC: false                      # 예: false (클러스터 범위 RBAC — 네임스페이스마다 권한을 따로 만들지 않음)
+processClusterExternalSecret: false    # 예: false (클러스터 범위 시크릿 정의를 처리하지 않습니다)
+processClusterPushSecret: false        # 예: false (클러스터 범위 밀어내기 정의를 처리하지 않습니다)
+processClusterStore: false             # 예: false (클러스터 범위 저장소 정의를 처리하지 않습니다)
+processClusterGenerator: false         # 예: false (클러스터 범위 생성기를 처리하지 않습니다)
+processPushSecret: false               # 예: false (클러스터의 값을 AWS 로 밀어내지 않습니다)
+rbac:
+  serviceAccountTokenCreate: false     # 예: false (ServiceAccount 토큰 발급 권한을 주지 않습니다)
+  aggregateToView: false               # 예: false (기본 조회 역할에 권한을 합치지 않습니다)
+  aggregateToEdit: false               # 예: false (기본 편집 역할에 권한을 합치지 않습니다)
+  aggregateToAdmin: false              # 예: false (기본 관리 역할에 권한을 합치지 않습니다)
+resources:
+  requests: {cpu: 50m, memory: 128Mi}  # 예: cpu 50m, memory 128Mi (배치에 쓰는 요청량)
+  limits: {memory: 256Mi}              # 예: memory 256Mi (메모리 상한)
+# 지표 수집 도구(관측 파이프라인)의 CRD 보다 이 controller 가 먼저 올라오므로 수집 대상 등록은 관측 파이프라인 가 만듭니다.
+serviceMonitor: {enabled: false}       # 예: false (chart 가 ServiceMonitor 를 만들지 않습니다)
+# Service 만 먼저 만듭니다. 수집 대상 등록 CR 은 지표 수집 도구 설치 뒤에 따로 적용합니다.
+metrics:
+  service:
+    enabled: true                      # 예: true (지표 Service 를 먼저 만듭니다)

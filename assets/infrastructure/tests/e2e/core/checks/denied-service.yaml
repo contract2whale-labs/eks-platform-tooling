@@ -1,0 +1,9 @@
+# tests/e2e/core/checks/denied-service.yaml
+# 클러스터 공통 서비스: VAP 가 이 Service 를 거부해야 합니다. dry-run=server 검증에만 사용합니다.
+apiVersion: v1 # 예: v1 (핵심 API 그룹의 버전)
+kind: Service  # 예: Service (검사 대상 자원 종류)
+metadata: {name: admission-denied, namespace: team-platform-check} # 예: 허용 입력과 같은 namespace
+spec:
+  type: LoadBalancer                                  # 예: LoadBalancer (정책이 거부해야 하는 형태)
+  selector: {app: policy-server}                      # 예: 허용 입력과 같은 값
+  ports: [{name: http, port: 8080, targetPort: 8080}] # 예: 허용 입력과 같은 값

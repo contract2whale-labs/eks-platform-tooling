@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aws-load-balancer-controller
+  namespace: monitoring
+  labels:
+    release: platform-monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+    - kube-system
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aws-load-balancer-controller
+      app.kubernetes.io/instance: aws-load-balancer-controller
+      platform.example/metrics: lbc
+  endpoints:
+  - port: metrics-server
+    path: /metrics
+    interval: 30s

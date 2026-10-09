@@ -1,0 +1,34 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: tenant-httproute-ownership
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - gateway.networking.k8s.io
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - httproutes
+  validations:
+  - expression: has(namespaceObject.metadata.annotations) && 'platform.example/hostname'
+      in namespaceObject.metadata.annotations && has(object.spec.hostnames) && size(object.spec.hostnames)
+      == 1 && object.spec.hostnames[0] == namespaceObject.metadata.annotations['platform.example/hostname']
+    message: HTTPRoute must use its Namespace registered hostname.
+  - expression: size(object.spec.parentRefs) == 1 && object.spec.parentRefs.all(p,
+      (!has(p.group) || p.group == 'gateway.networking.k8s.io') && (!has(p.kind) ||
+      p.kind == 'Gateway') && p.name == 'platform' && has(p.namespace) && p.namespace
+      == 'platform-gateway' && has(p.sectionName) && p.sectionName == 'https')
+    message: Use the platform HTTPS listener.
+  - expression: object.spec.rules.all(r, (!has(r.filters) || r.filters.all(f, !has(f.requestMirror)
+      || !has(f.requestMirror.backendRef.namespace) || f.requestMirror.backendRef.namespace
+      == object.metadata.namespace)) && (!has(r.backendRefs) || r.backendRefs.all(b,
+      (!has(b.namespace) || b.namespace == object.metadata.namespace) && (!has(b.filters)
+      || b.filters.all(f, !has(f.requestMirror) || !has(f.requestMirror.backendRef.namespace)
+      || f.requestMirror.backendRef.namespace == object.metadata.namespace)))))
+    message: Cross-namespace backends require a separate reviewed platform contract.

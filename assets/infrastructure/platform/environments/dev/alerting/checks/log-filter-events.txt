@@ -1,0 +1,16 @@
+# platform/environments/dev/alerting/checks/log-filter-events.txt
+# 알림 루트 모듈과 설치 검사: check-log-filters.sh 가 aws logs test-metric-filter 에 넣는 표본 기록입니다. 한 줄 = 기록 1건 (JSON), 첫 열은 기대 결과(match|skip), 두 번째 열은 대상 필터.
+# Fluent Bit 의 kubernetes 필터(Merge_Log On)가 만든 모양이며 stream · kubernetes.* 는 최상위 필드입니다. 메시지 문구(log)는 조건에 들어가지 않습니다.
+# 기록 안의 RUN_ID 는 스크립트가 시험용 validation run ID 로 바꿉니다 (원본 test_log_filters.py 의 fixture).
+match pool_acquire_timeout {"kubernetes":{"namespace_name":"kube-system","container_name":"aws-node","pod_name":"aws-node-abcde","host":"ip-172-20-4-10"},"stream":"stderr","log":"failed to assign an IP address to container","time":"2026-09-11T00:00:00.000000000Z"}
+match pool_acquire_timeout {"kubernetes":{"namespace_name":"kube-system","container_name":"aws-node"},"stream":"stderr","log":"another wording of the same failure"}
+skip  pool_acquire_timeout {"kubernetes":{"namespace_name":"kube-system","container_name":"aws-node"},"stream":"stdout","log":"failed to assign an IP address to container"}
+skip  pool_acquire_timeout {"kubernetes":{"namespace_name":"kube-system","container_name":"kube-proxy"},"stream":"stderr","log":"failed to assign an IP address to container"}
+skip  pool_acquire_timeout {"kubernetes":{"namespace_name":"contract2whale-demo","container_name":"aws-node"},"stream":"stderr","log":"failed to assign an IP address to container"}
+match armed_sample_deletion {"kubernetes":{"namespace_name":"kube-system","container_name":"node-drain-probe"},"event":"node_drain_probe","phase":"not_ready","validation_run_id":"RUN_ID"}
+skip  armed_sample_deletion {"kubernetes":{"namespace_name":"kube-system","container_name":"node-drain-probe"},"event":"node_drain_probe","phase":"ready","validation_run_id":"RUN_ID"}
+skip  armed_sample_deletion {"kubernetes":{"namespace_name":"kube-system","container_name":"node-drain-probe"},"event":"http_request","phase":"not_ready","validation_run_id":"RUN_ID"}
+skip  armed_sample_deletion {"kubernetes":{"namespace_name":"kube-system","container_name":"node-drain-probe"},"event":"node_drain_probe","phase":"not_ready","validation_run_id":"verify-fedcba9876543210fedcba9876543210"}
+skip  armed_sample_deletion {"kubernetes":{"namespace_name":"contract2whale-demo","container_name":"node-drain-probe"},"event":"node_drain_probe","phase":"not_ready","validation_run_id":"RUN_ID"}
+skip  armed_sample_deletion {"kubernetes":{"namespace_name":"kube-system","container_name":"node-drain-probe"},"event":"node_drain_probe","phase":"not_ready"}
+skip  armed_sample_deletion {"log":"{\"kubernetes\":{\"namespace_name\":\"kube-system\"},\"event\":\"node_drain_probe\",\"phase\":\"not_ready\",\"validation_run_id\":\"RUN_ID\"}"}

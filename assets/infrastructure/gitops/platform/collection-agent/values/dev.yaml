@@ -1,0 +1,229 @@
+mode: daemonset
+image:
+  repository: otel/opentelemetry-collector-contrib
+  tag: 0.160.0
+  digest: ''
+  pullPolicy: IfNotPresent
+command:
+  name: otelcol-contrib
+serviceAccount:
+  create: false
+  name: collection-agent
+podLabels:
+  app.kubernetes.io/component: collection-agent
+presets:
+  logsCollection:
+    enabled: false
+  kubernetesAttributes:
+    enabled: false
+  hostMetrics:
+    enabled: false
+  kubeletMetrics:
+    enabled: false
+tolerations:
+- key: workload
+  operator: Equal
+  value: observability
+  effect: NoSchedule
+- key: workload
+  operator: Equal
+  value: kafka
+  effect: NoSchedule
+hostNetwork: false
+securityContext:
+  runAsUser: 0
+  runAsGroup: 0
+  runAsNonRoot: false
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+extraVolumes:
+- name: varlog
+  hostPath:
+    path: /var/log
+    type: Directory
+- name: checkpoints
+  emptyDir:
+    sizeLimit: 1Gi
+- name: sa-token
+  projected:
+    sources:
+    - serviceAccountToken:
+        path: token
+        expirationSeconds: 3600
+    - configMap:
+        name: kube-root-ca.crt
+        items:
+        - key: ca.crt
+          path: ca.crt
+    - downwardAPI:
+        items:
+        - path: namespace
+          fieldRef:
+            fieldPath: metadata.namespace
+extraVolumeMounts:
+- name: varlog
+  mountPath: /var/log
+  readOnly: true
+- name: checkpoints
+  mountPath: /var/lib/otelcol
+  readOnly: false
+- name: sa-token
+  mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+  readOnly: true
+resources:
+  requests:
+    cpu: 100m
+    memory: 192Mi
+  limits:
+    memory: 512Mi
+ports:
+  otlp:
+    enabled: false
+  otlp-http:
+    enabled: false
+  jaeger-compact:
+    enabled: false
+  jaeger-thrift:
+    enabled: false
+  jaeger-grpc:
+    enabled: false
+  zipkin:
+    enabled: false
+  metrics:
+    enabled: true
+service:
+  enabled: true
+config:
+  extensions:
+    file_storage/checkpoints:
+      directory: /var/lib/otelcol/checkpoints
+      create_directory: true
+      timeout: 5s
+    health_check:
+      endpoint: 0.0.0.0:13133
+  receivers:
+    jaeger: null
+    zipkin: null
+    prometheus: null
+    otlp: null
+    filelog:
+      include:
+      - /var/log/pods/contract2whale-demo_*/*/*.log
+      - /var/log/pods/team-platform-check_*/*/*.log
+      exclude:
+      - /var/log/pods/*/opentelemetry-collector/*.log
+      start_at: end
+      include_file_path: true
+      include_file_name: false
+      poll_interval: 200ms
+      fingerprint_size: 1kb
+      max_log_size: 1MiB
+      storage: file_storage/checkpoints
+      retry_on_failure:
+        enabled: true
+      operators:
+      - type: container
+        id: container-parser
+        add_metadata_from_filepath: true
+      - type: json_parser
+        id: commerce-json
+        if: resource["k8s.namespace.name"] == "contract2whale-demo" and (resource["k8s.container.name"]
+          == "commerce-web" or resource["k8s.container.name"] == "commerce-api") and
+          body startsWith "{"
+        parse_from: body
+        parse_to: attributes
+        on_error: send
+      - type: trace_parser
+        id: commerce-trace
+        if: attributes.trace_id != nil and attributes.span_id != nil
+        trace_id:
+          parse_from: attributes.trace_id
+        span_id:
+          parse_from: attributes.span_id
+        on_error: send
+  processors:
+    memory_limiter:
+      check_interval: 1s
+      limit_percentage: 80
+      spike_limit_percentage: 20
+    k8sattributes:
+      auth_type: serviceAccount
+      passthrough: false
+      filter:
+        node_from_env_var: OTEL_K8S_NODE_NAME
+      extract:
+        metadata:
+        - k8s.namespace.name
+        - k8s.pod.name
+        - k8s.pod.uid
+        - k8s.node.name
+        - k8s.deployment.name
+        - k8s.container.name
+        labels:
+        - tag_name: app
+          key: app.kubernetes.io/name
+          from: pod
+      pod_association:
+      - sources:
+        - from: resource_attribute
+          name: k8s.pod.uid
+      - sources:
+        - from: connection
+    resource:
+      attributes:
+      - key: k8s.cluster.name
+        value: contract2whale-dev-eks
+        action: upsert
+      - key: telemetry.collector.role
+        value: agent
+        action: upsert
+    batch:
+      send_batch_size: 1024
+      send_batch_max_size: 2048
+      timeout: 5s
+  exporters:
+    debug: null
+    otlp/gateway:
+      endpoint: collection-gateway.observability.svc.cluster.local:4317
+      tls:
+        insecure: true
+      sending_queue:
+        enabled: true
+        num_consumers: 4
+        queue_size: 512
+      retry_on_failure:
+        enabled: true
+        initial_interval: 1s
+        max_interval: 30s
+        max_elapsed_time: 5m
+  service:
+    extensions:
+    - file_storage/checkpoints
+    - health_check
+    telemetry:
+      metrics:
+        readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+      logs:
+        level: info
+        encoding: json
+    pipelines:
+      metrics: null
+      traces: null
+      logs:
+        receivers:
+        - filelog
+        processors:
+        - memory_limiter
+        - k8sattributes
+        - resource
+        - batch
+        exporters:
+        - otlp/gateway

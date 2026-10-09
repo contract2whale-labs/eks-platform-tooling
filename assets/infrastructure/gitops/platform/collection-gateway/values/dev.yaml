@@ -1,0 +1,128 @@
+# gitops/platform/collection-gateway/values/dev.yaml
+# chart 값에서 chart 기본값에 없는 키를 null 로 지울 수 없으므로(Helm coalesce 규칙) 트레이스 exporter 는 이 파일에 두지 않고 겹침 파일이 더합니다.
+# 지표 경로를 겹침 파일로 두지 않고 이 파일에 둔 이유: 트레이스와 달리 밖에 의존하는 대상(Tempo)이 없어 게이트웨이 혼자 완결되고, 두 앱(commerce-api · commerce-web)이 /metrics 를 열지 않아 이 경로가 없으면 앱 지표가 아예 생기지 않기 때문입니다.
+mode: deployment # 예: deployment (여러 대를 네임스페이스에 두는 배치; 노드마다 뜨는 DaemonSet 이 아님)
+replicaCount: 3  # 예: 3 (실제 AZ 배치 확인; PDB minAvailable 2는 자발적 축출 제한이며 장애 중 Ready를 보장하지 않음)
+
+image:
+  repository: otel/opentelemetry-collector-contrib # 예: contrib 이미지 (otlphttp exporter · k8sattributes 포함)
+  tag: "0.160.0"
+  digest: ""               # 예: "" (버전 이름 고정; digest 고정은 쓰지 않음)
+  pullPolicy: IfNotPresent # 예: IfNotPresent (노드에 있으면 다시 받지 않음)
+command:
+  name: otelcol-contrib # 예: otelcol-contrib (contrib 이미지의 실행 파일 이름)
+
+serviceAccount:
+  create: false            # 예: false (신원을 새로 만들지 않음)
+  name: collection-gateway # 예: collection-gateway (61-collector-rbac.yaml 의 ServiceAccount)
+
+podLabels:
+  app.kubernetes.io/component: collection-gateway # 예: collection-gateway (60-application-egress · 30-gateway-service 가 고르는 label)
+
+presets:
+  logsCollection: {enabled: false}       # 예: false (노드 파일 읽기는 에이전트)
+  kubernetesAttributes: {enabled: false} # 예: false (메타데이터는 에이전트가 이미 붙임)
+  hostMetrics: {enabled: false}          # 예: false (노드 지표는 node-exporter)
+  kubeletMetrics: {enabled: false}       # 예: false
+
+nodeSelector: {workload: observability} # 예: workload=observability
+tolerations:
+  - {key: workload, operator: Equal, value: observability, effect: NoSchedule} # 예: 관측 노드의 taint 를 견딤
+topologySpreadConstraints:
+  - maxSkew: 1                               # 예: 1 (AZ 간 개수 차이 상한)
+    topologyKey: topology.kubernetes.io/zone # 예: AZ 키
+    whenUnsatisfiable: ScheduleAnyway        # 예: ScheduleAnyway (AZ 가 모자라도 배치)
+    labelSelector:
+      matchLabels: {app.kubernetes.io/component: collection-gateway} # 예: 같은 구성 요소끼리만 셈
+
+resources:
+  requests: {cpu: 300m, memory: 512Mi} # 예: 요청량 (3대 = 0.9 vCPU · 1.5 GiB)
+  limits: {memory: 1Gi}                # 예: 메모리 상한 (memory_limiter 의 기준값)
+
+# 받는 포트는 OTLP 두 개뿐입니다. 60-application-egress.yaml 이 여는 4317 · 4318 과 같아야 합니다.
+# 8888 · 8889 는 받는 포트가 아니라 Prometheus 가 읽어 가는 포트입니다 (앱 송신 정책은 이 둘을 열지 않습니다).
+ports:
+  otlp:      {enabled: true, containerPort: 4317, servicePort: 4317, protocol: TCP} # 예: OTLP gRPC
+  otlp-http: {enabled: true, containerPort: 4318, servicePort: 4318, protocol: TCP} # 예: OTLP HTTP
+  jaeger-compact: {enabled: false} # 예: false (쓰지 않는 수신부)
+  jaeger-thrift:  {enabled: false} # 예: false
+  jaeger-grpc:    {enabled: false} # 예: false
+  zipkin:         {enabled: false} # 예: false
+  metrics:        {enabled: true}  # 예: true (자체 지표 8888)
+  app-metrics:    {enabled: true, containerPort: 8889, servicePort: 8889, protocol: TCP} # 예: 앱 지표 8889 (config.exporters.prometheus 가 여는 포트; 자체 지표 8888 과 다른 번호)
+
+# Service 는 chart 가 만들지 않습니다. 이름(collection-gateway)과 selector 를 고정하려고 manifests/30-gateway-service.yaml 에 따로 둡니다.
+service:
+  enabled: false # 예: false
+
+# chart 기본 config 의 항목을 null 로 지우는 방식은 chart 0.173.1 에서 확인한 것입니다 (rewriteDeprecatedComponentNames 가 otlphttp → otlp_http, otlp → otlp_grpc 로 이름을 바꿈).
+config:
+  extensions:
+    health_check:
+      endpoint: 0.0.0.0:13133 # 예: 상태 확인 주소 (chart 기본 ${env:MY_POD_IP} 대신 모든 주소)
+  receivers:
+    jaeger: null     # 예: null (chart 기본 수신부 제거)
+    zipkin: null     # 예: null
+    prometheus: null # 예: null (자체 수집 수신부 제거)
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317    # 예: OTLP gRPC
+          max_recv_msg_size_mib: 16 # 예: 16 (한 요청의 최대 크기, MiB)
+        http:
+          endpoint: 0.0.0.0:4318    # 예: OTLP HTTP
+  processors:
+    memory_limiter:
+      check_interval: 1s         # 예: 1s
+      limit_percentage: 80       # 예: 80 (hard limit 80%)
+      spike_limit_percentage: 20 # 예: 20 (soft limit = 60%; 넘으면 받기 거부 → 보내는 쪽이 재시도)
+    resource:
+      attributes:
+        - {key: telemetry.collector.role, value: gateway, action: upsert} # 예: 게이트웨이를 지난 자료임을 남김
+    attributes/drop-sensitive-headers:
+      # 앱이 HTTP 헤더를 bare span 속성으로 넣는 경우와 OTEL 표준 키를 함께 삭제합니다.
+      # x-publishable-api-key는 공개 식별자지만 trace에서 제거합니다. 열거한 이름만 대상이며 모든 API-key 변형을 보장하지 않습니다.
+      # traceparent 같은 진단 좌표는 유지하며, 앱에서 처음부터 비밀 헤더를 수집하지 않는 설정이 우선입니다.
+      actions:
+        - pattern: '(?i)^(http\.(request|response)\.headers?\.)?(authorization|proxy-authorization|cookie|set-cookie|x-api-key|x-publishable-api-key)$'
+          action: delete
+    batch:
+      send_batch_size: 2048     # 예: 2048
+      send_batch_max_size: 4096 # 예: 4096
+      timeout: 5s               # 예: 5s
+  exporters:
+    debug: null # 예: null (chart 기본 debug exporter 제거)
+    otlphttp/logs:
+      endpoint: http://platform-loki-gateway.logging.svc.cluster.local/otlp
+      compression: gzip # 예: gzip
+      timeout: 30s      # 예: 30s
+      sending_queue: {enabled: true, num_consumers: 8, queue_size: 1000}                                  # 예: 요청 단위 큐 1000
+      retry_on_failure: {enabled: true, initial_interval: 1s, max_interval: 30s, max_elapsed_time: 5m}   # 예: 실패한 전송 배치의 재시도 경과 상한 5분; 메모리 큐는 Pod 교체 시 보존되지 않음
+    # 지표는 어디로도 보내지 않고 8889 포트에 내어놓기만 합니다. Prometheus 가 30-gateway-service.yaml 의 ServiceMonitor 로 긁어 갑니다 (밀어 넣기가 아니라 긁어 가기인 이유는 그 파일 주석).
+    prometheus:
+      endpoint: 0.0.0.0:8889                            # 예: 0.0.0.0:8889 (위 ports.app-metrics 와 같은 번호)
+      resource_to_telemetry_conversion: {enabled: true} # 예: true (resource attribute 를 label 로 남김 — service.name → service_name · deployment.environment → deployment_environment · telemetry.collector.role → telemetry_collector_role)
+      add_metric_suffixes: true                         # 예: true (단위 · 합계 접미사를 붙임 — 80-application-rules.yaml 의 _total · _seconds_bucket 이름 규칙)
+      metric_expiration: 5m                             # 예: 5m (마지막 자료점에서 5분이 지난 계열을 내려놓음; 이 시간이 메모리에 쌓이는 양의 상한)
+      send_timestamps: false                            # 예: false (자료점 시각이 아니라 긁어 간 시각을 씀 — 다른 수집 대상과 staleness 처리가 같아짐)
+      enable_open_metrics: false                        # 예: false (exemplar 는 Prometheus 의 exemplar-storage 를 켜야 쓸 수 있어 이번 범위 밖)
+  service:
+    extensions: [health_check] # 예: health_check 하나
+    telemetry:
+      metrics:
+        readers:
+          - pull:
+              exporter:
+                prometheus: {host: 0.0.0.0, port: 8888} # 예: 자체 지표 8888 (30-gateway-service 의 ServiceMonitor 가 수집)
+      logs: {level: info, encoding: json} # 예: info · json
+    pipelines:
+      # 앱이 OTLP 로 보낸 지표입니다. chart 기본 metrics 파이프라인(prometheus 수신부로 자기 자신을 긁던 것)을 지우고 같은 자리를 이 경로가 씁니다.
+      metrics:
+        receivers: [otlp]                             # 예: 로그 · 트레이스와 같은 수신부 (앱이 4317 · 4318 로 보냄)
+        processors: [memory_limiter, resource, batch] # 예: 로그와 같은 순서 (resource 가 telemetry.collector.role 을 붙임)
+        exporters: [prometheus]                       # 예: 8889 에 내어놓기만 함 (보내는 곳이 없어 큐 · 재시도가 필요 없음)
+      logs:
+        receivers: [otlp]                             # 예: 수신부 하나를 두 파이프라인이 함께 씀
+        processors: [memory_limiter, resource, batch] # 예: 순서 고정 (memory_limiter 맨 앞 · batch 맨 뒤)
+        exporters: [otlphttp/logs]                    # 예: Loki 로만
+      traces: null

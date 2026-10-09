@@ -1,0 +1,28 @@
+# terraform.tfvars.example — dev platform/observability 루트 모듈
+# terraform.tfvars 로 복사한 뒤 expected_account_id · state_bucket_name · trusted_principal_arns 를 work/lab.env 의 DEV_ACCOUNT_ID · DEV_STATE_BUCKET · DEV_OPERATOR_ROLE_ARN 으로 바꿉니다.
+# terraform.tfvars 는 커밋하지 않습니다. 클러스터 · 운영 기반 · 네트워크 · 계정 계약은 입력하지 않습니다 (remote-state.tf 가 State 4곳에서 읽음).
+
+expected_account_id = "111111111111"                     # 예: 12자리 AWS 계정 번호 (DEV_ACCOUNT_ID)
+region              = "ap-northeast-2"                   # 예: "ap-northeast-2" (서울 리전)
+environment         = "dev"                              # 예: "dev" (이 디렉터리는 dev 만 허용)
+state_bucket_name   = "company-dev-tfstate-111111111111" # 예: backend.hcl 의 bucket 과 같은 Dev State 버킷 (DEV_STATE_BUCKET)
+
+trusted_principal_arns = ["arn:aws:iam::111111111111:role/aws-reserved/sso.amazonaws.com/ap-northeast-2/AWSReservedSSO_InfrastructureProvisioner_0123456789abcdef"] # 형태 예시; 실제 DEV_OPERATOR_ROLE_ARN으로 교체
+permissions_boundary_arn = null # 예: null (미부착) / "arn:aws:iam::111111111111:policy/PlatformBoundary"
+
+# 저장소 수명 주기가 객체를 지우는 기준일입니다. 구성 요소의 보존 설정보다 길게 둡니다.
+signal_retention_days = {
+  metrics = 400
+  logs    = 90
+  traces  = 40
+}
+
+# 뒤의 관리형 큐 전환 구성(메시지 큐 전환)이 바꾸는 두 값입니다. 여기서는 초기값만 넣습니다.
+active_trace_backend = "self-managed" # 예: "self-managed" (클러스터 안에 직접 세운 브로커)
+storage_epoch        = 1              # 예: 1 (전환 전의 초기 세대 번호)
+
+# 계약의 규칙 버전입니다. 읽는 쪽이 코드를 고쳐야 하는 변화가 있을 때만 올립니다.
+policy_version = 1 # 예: 1 (첫 버전)
+
+# S3 사설 경로(엔드포인트 정책)에 더할 이 계정의 저장소입니다. 앱 미디어 버킷이 생긴 뒤(애플리케이션 데이터 · 운영 환경)에만 적습니다.
+# additional_bucket_names = ["cp-dev-app-exports-111111111111-ap-northeast-2"]

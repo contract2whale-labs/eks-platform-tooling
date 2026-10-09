@@ -1,0 +1,35 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: app-api-jwt
+  namespace: contract2whale-demo
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: app-api
+  jwt:
+    providers:
+    - name: cognito
+      issuer: https://cognito-idp.ap-northeast-2.amazonaws.com/ap-northeast-2_AbCdEfGhI
+      remoteJWKS:
+        uri: https://cognito-idp.ap-northeast-2.amazonaws.com/ap-northeast-2_AbCdEfGhI/.well-known/jwks.json
+      claimToHeaders:
+      - claim: sub
+        header: x-auth-subject
+  authorization:
+    defaultAction: Deny
+    rules:
+    - name: tasks-scope-from-known-clients
+      action: Allow
+      principal:
+        jwt:
+          provider: cognito
+          scopes:
+          - course-api/tasks
+          claims:
+          - name: client_id
+            valueType: String
+            values:
+            - 1example2uiclientid3
+            - 4example5m2mclientid6

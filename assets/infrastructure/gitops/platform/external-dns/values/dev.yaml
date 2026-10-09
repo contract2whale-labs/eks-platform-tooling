@@ -1,0 +1,25 @@
+# gitops/platform/external-dns/values/dev.yaml
+# Gateway와 인증서의 native 선언: ExternalDNS chart 1.21.1 의 고정 값입니다. chart 기본 app 0.21.0 대신 stable 0.22.0 을 명시합니다.
+image:
+  repository: registry.k8s.io/external-dns/external-dns # 예: 공식 이미지 저장소 경로
+  tag: v0.22.0                                          # 예: v0.22.0 (versions.env 의 EXTERNAL_DNS_IMAGE_VERSION 과 같은 값)
+serviceAccount:
+  create: true       # 예: true (chart 가 ServiceAccount 를 만듦)
+  name: external-dns # 예: Pod Identity 연결(modules/gateway local.controllers.dns.sa)과 같은 이름
+  annotations: {}    # 예: {} (IRSA annotation 을 쓰지 않음)
+provider:
+  name: aws # 예: aws (Route 53 을 대상으로 함)
+sources: [gateway-httproute] # 예: HTTPRoute 만 감시 (Service · Ingress 는 보지 않음)
+# 삭제는 승인된 운영 절차로 처리합니다. 이름을 바꾸면 이전 DNS 는 자동으로 지워지지 않습니다.
+policy: upsert-only     # 예: upsert-only (생성 · 갱신만 하고 삭제하지 않음)
+registry: txt           # 예: txt (소유권을 TXT 레코드로 기록)
+txtPrefix: _externaldns. # 예: _externaldns. (소유권 TXT 이름 앞에 붙음; _acme-challenge TXT 와 구분)
+# 0.22 의 표준 annotation prefix 입니다. 기존 alpha prefix 를 조용히 재사용하지 않습니다.
+annotationPrefix: external-dns.kubernetes.io/ # 예: external-dns.kubernetes.io/
+interval: 1m               # 예: 1m (주기적으로 다시 맞추는 간격)
+triggerLoopOnEvent: true   # 예: true (리소스 변경 때 즉시 반영)
+serviceMonitor:
+  enabled: false # 예: false (수집 설정은 운영 기반 구성이 소유)
+resources:
+  requests: { cpu: 50m, memory: 128Mi } # 예: 요청
+  limits: { memory: 256Mi }             # 예: 상한

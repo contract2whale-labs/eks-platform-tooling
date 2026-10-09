@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: observability-delivery-check
+  namespace: monitoring
+  labels: {release: platform-monitoring}
+spec:
+  groups:
+  - name: observability.delivery-check
+    rules:
+    - alert: ObservabilityDeliveryCheck
+      expr: vector(1)
+      for: 1m
+      labels:
+        severity: warning
+        environment: dev
+        cluster: contract2whale-dev-eks
+        namespace: monitoring
+      annotations:
+        summary: Approved temporary alert delivery check

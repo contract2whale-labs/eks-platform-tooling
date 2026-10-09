@@ -1,0 +1,15 @@
+work/
+.labctl/
+.local/
+.env
+.env.local
+*.pem
+*.key
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+**/.terraform/
+.DS_Store

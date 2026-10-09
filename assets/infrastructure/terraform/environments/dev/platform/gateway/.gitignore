@@ -1,0 +1,9 @@
+# terraform/environments/dev/platform/gateway/.gitignore
+# controller 권한과 소유권: State · plan · 사용자 입력은 Git 에서 제외합니다 (저장소 최상위 .gitignore 와 같은 규칙을 이 디렉터리에서 다시 명시). lock 파일(.terraform.lock.hcl)은 추적합니다.
+.terraform/
+*.tfstate*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+backend.hcl
+!backend.hcl.example

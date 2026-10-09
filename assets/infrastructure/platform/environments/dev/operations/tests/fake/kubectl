@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# operations/tests/fake/kubectl — check-autoscaler-ready.test.sh 용 가짜 kubectl (읽기만). 응답은 $FAKE_DIR 의 파일, 실패 주입은 FAKE_FAIL=<이름>
+set -u
+printf 'kubectl %s\n' "$*" >> "$FAKE_LOG"
+case "$*" in
+  *"get --raw=/readyz"*) [ "${FAKE_FAIL:-}" = api ] && exit 1; echo ok ;;
+  *"get deployment cluster-autoscaler"*) cat "$FAKE_DIR/ca-ready.txt" ;;
+  *"get configmap cluster-autoscaler-status"*) [ "${FAKE_FAIL:-}" = ca-status ] && exit 1; cat "$FAKE_DIR/ca-status.txt" ;;
+  *"get nodes"*) cat "$FAKE_DIR/nodes.json" ;;
+  *"get pods -A"*) cat "$FAKE_DIR/pending.json" ;;
+  *) echo "fake kubectl: unexpected: $*" >&2; exit 2 ;;
+esac

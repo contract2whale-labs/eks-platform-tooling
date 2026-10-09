@@ -1,0 +1,129 @@
+# tests/e2e/mesh/checks/mesh-probes.yaml
+# 각 Deployment는 mesh-policy/base/identities.yaml의 ServiceAccount를 하나씩 씁니다. 신분이 곧 검사 변수이므로 default 계정을 쓰지 않습니다.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mesh-server                  # 예: mesh-server (받는 쪽; Service mesh-server 의 endpoint)
+  namespace: team-mesh-check         # 예: team-mesh-check (편입된 네임스페이스)
+spec:
+  replicas: 1                        # 예: 1 (검사용이므로 1개)
+  selector:
+    matchLabels: {app: mesh-server}
+  template:
+    metadata:
+      labels: {app: mesh-server}     # 예: app: mesh-server (Service selector 와 AuthorizationPolicy selector 가 고르는 label)
+    spec:
+      serviceAccountName: mesh-server        # 예: mesh-server (dst.identity = cluster.local/ns/team-mesh-check/sa/mesh-server)
+      automountServiceAccountToken: false    # 예: false (API 토큰을 마운트하지 않음)
+      securityContext:
+        runAsNonRoot: true                     # 예: true (restricted 요구)
+        runAsUser: 1000                        # 예: 1000 (root 가 아닌 UID)
+        seccompProfile: {type: RuntimeDefault} # 예: RuntimeDefault (restricted 요구)
+      containers:
+        - name: probe
+          image: platform-probe                 # 예: public.ecr.aws/docker/library/python@sha256:<64자리> (deploy-probes.sh 가 치환)
+          command: [python3, -m, http.server, "8080"]    # 예: 8080 에서 응답하는 HTTP 서버 (server 만 응답)
+          ports: [{name: http, containerPort: 8080}]     # 예: TCP 8080
+          securityContext:
+            allowPrivilegeEscalation: false # 예: false (restricted 요구)
+            readOnlyRootFilesystem: true    # 예: true
+            capabilities: {drop: [ALL]}     # 예: 모든 capability 제거
+          resources:
+            requests: {cpu: 10m, memory: 32Mi} # 예: 최소 요청
+            limits: {memory: 128Mi}            # 예: 메모리 상한
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mesh-client                  # 예: mesh-client (허용된 신분의 출발지)
+  namespace: team-mesh-check
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: mesh-client}
+  template:
+    metadata:
+      labels: {app: mesh-client}
+    spec:
+      serviceAccountName: mesh-client        # 예: mesh-client (src.identity = cluster.local/ns/team-mesh-check/sa/mesh-client)
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: probe
+          image: platform-probe
+          command: [python3, -c, "import time; time.sleep(3600)"] # 예: 대기만 하는 client (exec 로 요청을 보냄)
+          ports: [{name: http, containerPort: 8080}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 128Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mesh-stranger                # 예: mesh-stranger (같은 네임스페이스 · 다른 신분; 허용 정책의 principals 에 없음)
+  namespace: team-mesh-check
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: mesh-stranger}
+  template:
+    metadata:
+      labels: {app: mesh-stranger}
+    spec:
+      serviceAccountName: mesh-stranger      # 예: mesh-stranger (src.identity = …/sa/mesh-stranger → 거부)
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: probe
+          image: platform-probe
+          command: [python3, -c, "import time; time.sleep(3600)"]
+          ports: [{name: http, containerPort: 8080}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 128Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mesh-outside                 # 예: mesh-outside (편입하지 않은 네임스페이스의 출발지; 평문으로 붙음)
+  namespace: team-mesh-outside       # 예: team-mesh-outside (편입 label 없음)
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: mesh-outside}
+  template:
+    metadata:
+      labels: {app: mesh-outside}
+    spec:
+      serviceAccountName: mesh-outside       # 예: mesh-outside (메시 밖이므로 신분 증명 없이 평문)
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: probe
+          image: platform-probe
+          command: [python3, -c, "import time; time.sleep(3600)"]
+          ports: [{name: http, containerPort: 8080}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 128Mi}

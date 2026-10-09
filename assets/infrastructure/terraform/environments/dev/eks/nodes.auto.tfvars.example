@@ -1,0 +1,58 @@
+# nodes.auto.tfvars.example — dev eks 루트 모듈 (루트 모듈 연결과 노드 계약 작성 · 필수 Add-on 과 버전 고정 채움 · 관측 노드 그룹과 taint 관측 그룹 · 메시지 큐 노드 그룹과 볼륨 고정 메시지 큐 그룹 · 앱과 DB 작업이 쓸 노드 그룹 추가 앱 그룹 추가 판)
+# nodes.auto.tfvars 로 복사한 뒤 아래 세 값을 리전 조회 결과로 바꿉니다 (terraform 이 *.auto.tfvars 를 자동으로 읽음). nodes.auto.tfvars 는 커밋하지 않습니다.
+#   node_release_version : aws ssm get-parameter --name /aws/service/eks/optimized-ami/1.36/amazon-linux-2023/x86_64/standard/recommended --query 'Parameter.Value' --output text 의 release_version
+#   addon_versions       : aws eks describe-addon-versions --addon-name <이름> --kubernetes-version 1.36 (전체 JSON에서 모든 호환 항목 확인 후 명시적으로 고정; Add-on별 5회)
+#   ebs_csi_policy_arn   : aws iam list-policies --scope AWS --query 'Policies[?starts_with(PolicyName, `AmazonEBSCSIDriverPolicy`)].Arn' --output text
+# 버전 문자열은 문서나 표에서 옮겨 적지 않습니다 (리전 · 시점에 따라 다름). 아래 값은 형식 예시입니다.
+
+node_release_version = "1.36.0-20260815"                                               # 예: "1.36.0-20260815" (형식 예시; 마이너 1.36 이 kubernetes_version 과 같아야 함)
+ebs_csi_policy_arn   = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy" # 예: list-policies 결과 (V2 가 조회되면 그 ARN)
+
+addon_versions = {
+  vpc-cni                = "v1.20.3-eksbuild.1" # 예: 형식 예시 (조회 값으로 교체)
+  coredns                = "v1.12.4-eksbuild.1" # 예: 형식 예시
+  kube-proxy             = "v1.36.0-eksbuild.2" # 예: 형식 예시 (마이너 1.36 이 kubernetes_version 과 같아야 함)
+  eks-pod-identity-agent = "v1.3.9-eksbuild.1"  # 예: 형식 예시
+  aws-ebs-csi-driver     = "v1.53.0-eksbuild.1" # 예: 형식 예시
+}
+
+node_groups = {
+  system = {
+    instance_types = ["m7i.large"]                     # 기본값: ["m7i.large"] (2 vCPU · 8 GiB, x86_64; describe-instance-type-offerings 로 AZ 3곳 제공 확인)
+    scaling        = { min = 2, max = 4, desired = 2 } # 기본값: 최소 2 · 최대 4 · 처음 2대
+    disk_gib       = 40                                # 기본값: 40 (gp3 루트 볼륨 40 GiB)
+    labels         = { workload = "system" }           # 기본값: workload=system (뒤 챕터의 nodeSelector 키)
+    taints         = []                                # 기본값: [] (taint 없음)
+    subnet_scope   = "all"                             # 기본값: "all" (EKS 서브넷 3개를 한 그룹에)
+  }
+
+  # 관측 그룹은 m7i.xlarge × AZ당 1대, 총 3대에서 시작합니다. Autoscaler가 늘릴 수 있는 Pending 원인인지 요청량·taint/toleration·AZ·상한과 실제 로그를 확인합니다. 모든 Pending을 증설로 해결하지는 않습니다.
+  observability = {
+    instance_types = ["m7i.xlarge"]                                                         # 예: ["m7i.xlarge"] (4 vCPU · 16 GiB; 메모리가 모자라면 r7i.xlarge 4 vCPU · 32 GiB)
+    scaling        = { min = 1, max = 2, desired = 1 }                                      # 예: AZ 당 최소 1 · 최대 2 · 처음 1대 (3 AZ = 3대; 노드 용량 제어 뒤 desired 는 Autoscaler 소유)
+    disk_gib       = 50                                                                     # 예: 50 (gp3 루트 볼륨; 컨테이너 이미지 · 임시 파일용, 데이터 볼륨은 PVC)
+    labels         = { workload = "observability" }                                         # 예: workload=observability (관측 values 의 nodeSelector 가 고르는 label)
+    taints         = [{ key = "workload", value = "observability", effect = "NoSchedule" }] # 예: 기본 스케줄러의 새 배치에서 맞는 toleration이 없는 Pod를 제한; 기존 Pod를 퇴거시키지는 않음
+    subnet_scope   = "per_az"                                                               # 예: "per_az" (AZ 마다 노드 그룹 1개: contract2whale-dev-eks-observability-ap-northeast-2a · 2b · 2c)
+  }
+
+  # 큐 그룹은 m7i.large × AZ당 1대, 총 3대에서 시작합니다. 브로커·컨트롤러의 요청량과 실제 affinity·AZ·가용 용량으로 배치를 확인합니다. 요청량 합계만으로 같은 노드 배치를 보장하지 않습니다.
+  kafka = {
+    instance_types = ["m7i.large"]                                                  # 예: ["m7i.large"] (2 vCPU · 8 GiB; 브로커 병목은 실측으로 정함)
+    scaling        = { min = 1, max = 2, desired = 1 }                              # 예: AZ 당 최소 1 · 최대 2 · 처음 1대 (3 AZ = 3대, 최대 6대)
+    disk_gib       = 40                                                             # 예: 40 (gp3 루트 볼륨; 이미지 · 노드 로그 · 임시 파일용, 기록은 PVC)
+    labels         = { workload = "kafka" }                                         # 예: workload=kafka (KafkaNodePool 의 nodeAffinity 가 고르는 label)
+    taints         = [{ key = "workload", value = "kafka", effect = "NoSchedule" }] # 예: 기본 스케줄러의 새 배치에서 맞는 toleration이 필요; 에이전트의 실제 toleration도 확인
+    subnet_scope   = "per_az"                                                       # 예: "per_az" (contract2whale-dev-eks-kafka-ap-northeast-2a · 2b · 2c)
+  }
+
+  # 앱과 DB 작업이 쓸 노드 그룹 추가: 앱 Pod(commerce-web · commerce-api) · 초기화 · 진단 · 마이그레이션 Job 이 올라가는 그룹입니다. taint는 없고 nodeSelector workload=app과 실제 스케줄링 조건으로 배치를 확인합니다. 노드 그룹은 all 서브넷을 사용하며, 각 작업의 PVC 유무와 AZ 제약은 작업 명세에서 따로 확인합니다.
+  app = {
+    instance_types = ["m7i.large"]                     # 예: ["m7i.large"] (2 vCPU · 8 GiB, x86_64 — 운영자 · 앱 이미지가 linux/amd64)
+    scaling        = { min = 2, max = 4, desired = 2 } # 예: 최소 2 · 최대 4 · 처음 2대 (validation 이 min 0 을 거부 — 되돌릴 때는 min · desired 를 1 로)
+    disk_gib       = 40                                # 예: 40 (gp3 루트 볼륨; 컨테이너 이미지 · 임시 파일용)
+    labels         = { workload = "app" }              # 예: workload=app (commerce-web Rollout · commerce-api Deployment · Job 의 nodeSelector 값)
+    taints         = []                                # 예: [] (taint 없음 — 앱 · Job 명세에 toleration 이 필요 없음)
+    subnet_scope   = "all"                             # 예: "all" (EKS 서브넷 3개를 한 그룹에: contract2whale-dev-eks-app)
+  }
+}

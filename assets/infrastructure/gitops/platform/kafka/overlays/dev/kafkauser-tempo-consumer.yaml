@@ -1,0 +1,84 @@
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaUser
+metadata:
+  name: tempo-consumer
+  namespace: messaging
+  labels:
+    strimzi.io/cluster: platform-queue
+    platform-managed: queue
+spec:
+  authentication:
+    type: scram-sha-512
+  authorization:
+    type: simple
+    acls:
+    - resource:
+        type: topic
+        name: platform-traces
+        patternType: literal
+      operations:
+      - Describe
+      - Read
+      host: '*'
+      type: allow
+    - resource:
+        type: group
+        name: block-builder
+        patternType: literal
+      operations:
+      - Describe
+      - Read
+      host: '*'
+      type: allow
+    - resource:
+        type: group
+        name: metrics-generator
+        patternType: literal
+      operations:
+      - Describe
+      - Read
+      host: '*'
+      type: allow
+    - resource:
+        type: group
+        name: platform-tempo-live-store-zone-a
+        patternType: prefix
+      operations:
+      - Describe
+      - Read
+      host: '*'
+      type: allow
+    - resource:
+        type: group
+        name: platform-tempo-live-store-zone-b
+        patternType: prefix
+      operations:
+      - Describe
+      - Read
+      host: '*'
+      type: allow
+    - resource:
+        type: group
+        name: platform-tempo-live-store-zone-c
+        patternType: prefix
+      operations:
+      - Describe
+      - Read
+      host: '*'
+      type: allow
+    - resource:
+        type: topic
+        name: '*'
+        patternType: literal
+      operations:
+      - Create
+      - Delete
+      - Write
+      host: '*'
+      type: deny
+    - resource:
+        type: cluster
+      operations:
+      - Create
+      host: '*'
+      type: deny

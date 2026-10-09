@@ -1,0 +1,8 @@
+# terraform.tfvars.example — prod identity 루트 모듈
+# 데이터 루트 모듈과 PostgreSQL 버전 고정: terraform.tfvars 로 복사한 뒤 expected_account_id · state_bucket_name 을 work/lab.env 의 PROD_ACCOUNT_ID · PROD_STATE_BUCKET 으로 바꿉니다. terraform.tfvars 는 커밋하지 않습니다.
+# 시크릿 ARN · 내보내기 접두사 · ServiceAccount 이름 · migration Role 은 입력하지 않습니다 (data · eks State 와 IAM 조회에서 옵니다 — P1 · P3).
+
+expected_account_id = "222222222222"                      # 예: 12자리 AWS 계정 번호 (PROD_ACCOUNT_ID)
+region              = "ap-northeast-2"                    # 예: "ap-northeast-2"
+environment         = "prod"                              # 예: "prod" (이 디렉터리는 prod 만 허용)
+state_bucket_name   = "company-prod-tfstate-222222222222" # 예: backend.hcl 의 bucket 과 같은 Prod State 버킷 (PROD_STATE_BUCKET)

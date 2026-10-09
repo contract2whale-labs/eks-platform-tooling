@@ -1,0 +1,32 @@
+# gitops/platform/istio-cni/values/dev.yaml
+# 서비스 메시: 네트워크 플러그인(istio-cni) 설치 값입니다. 편입된 네임스페이스의 Pod 에만 우회(redirect) 설정을 넣습니다.
+profile: ambient # 예: ambient (chart 의 ambient profile 을 기본으로 깔고 아래 값을 덮어씀)
+ambient:
+  enabled: true     # 예: true (ambient 모드 우회 설정을 켬)
+  dnsCapture: false # 예: false (DNS 질의는 가로채지 않음; CoreDNS 경로를 그대로 둠)
+cniConfDir: /etc/cni/net.d # 예: /etc/cni/net.d (EKS AL2023 노드의 CNI 설정 위치)
+cniBinDir: /opt/cni/bin    # 예: /opt/cni/bin (EKS 노드의 CNI 실행 파일 위치)
+chained: true              # 예: true (vpc-cni 뒤에 chained plugin 으로 붙음; aws-node 를 대체하지 않음)
+logging:
+  level: info # 예: info (chart 의 키는 logging.level; 최상위 logLevel 은 이 chart 에 없음)
+# 기반 구성과 운영 도구가 쓰는 네임스페이스는 어떤 경우에도 편입하지 않습니다.
+# Gateway 네임스페이스(platform-gateway, 관련 구성)은 이 목록에 없습니다. Gateway 에서 앱으로 나가는 연결을 감싸려면 Gateway 가 편입되어 있어야 합니다.
+excludeNamespaces:
+  - kube-system      # 예: kube-system (aws-node · coredns 등 클러스터 기반)
+  - istio-system     # 예: istio-system (메시 컨트롤 플레인 자신)
+  - cert-manager     # 예: cert-manager (클러스터 공통 서비스)
+  - external-secrets # 예: external-secrets (관련 구성 운영 도구)
+  - velero           # 예: velero (관련 구성 백업)
+  - logging          # 예: logging (관측 노드 구성 로그 수집)
+  - monitoring       # 예: monitoring (관측 노드 구성 지표 수집)
+repair:
+  enabled: true # 예: true (우회 설정이 빠진 Pod 를 감지해 복구)
+resources:
+  requests: {cpu: 50m, memory: 128Mi} # 예: cpu 50m, memory 128Mi (노드마다 1개; 스케줄링 기준 용량)
+  limits: {memory: 256Mi}             # 예: memory 256Mi (메모리 상한)
+# 노드마다 하나씩 뜨므로 뒤 챕터가 붙일 taint(workload=observability · workload=kafka, NoSchedule)를 모두 견뎌야 합니다.
+# 이 목록은 chart 기본 목록을 대체합니다. 견뎌야 할 값을 모두 적습니다.
+tolerations:
+  - key: workload      # 예: workload (관련 구성 노드 그룹이 쓰는 taint 키)
+    operator: Exists   # 예: Exists (값과 무관하게 이 키의 taint 를 견딤)
+    effect: NoSchedule # 예: NoSchedule (배치 거부 taint 만 견딤)

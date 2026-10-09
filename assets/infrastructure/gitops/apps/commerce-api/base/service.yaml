@@ -1,0 +1,14 @@
+# gitops/apps/commerce-api/base/service.yaml — 커머스 백엔드를 가리키는 Service (canary 가 없어 하나뿐)
+# selector 는 Deployment 의 Pod label 과 같아야 합니다. type 은 ClusterIP (클러스터 보안 기반 VAP tenant-clusterip-services).
+apiVersion: v1
+kind: Service
+metadata:
+  name: commerce-api                            # 예: commerce-api (HTTPRoute backendRefs · MEDUSA_BACKEND_URL 의 호스트)
+  labels:
+    app.kubernetes.io/name: commerce-api        # 예: commerce-api
+spec:
+  type: ClusterIP                               # 예: ClusterIP
+  selector:
+    app.kubernetes.io/name: commerce-api        # 예: Pod label 과 같은 값
+  ports:
+    - {name: http, port: 9000, targetPort: http, protocol: TCP} # 예: 9000

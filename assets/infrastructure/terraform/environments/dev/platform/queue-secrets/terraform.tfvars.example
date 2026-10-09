@@ -1,0 +1,4 @@
+expected_account_id = "111111111111"
+region = "ap-northeast-2"
+environment = "dev"
+state_bucket_name = "company-dev-tfstate-111111111111"

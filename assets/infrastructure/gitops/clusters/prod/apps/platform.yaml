@@ -1,0 +1,26 @@
+# 정책은 child 등록 뒤 CRD와 controller Ready를 확인하고 승인한 revision으로 수동 sync합니다.
+# gitops/clusters/prod/apps/platform.yaml
+# 권한과 승인 제어: 플랫폼 매니페스트(Kustomize overlay gitops/platform/overlays/prod)를 동기화합니다 — Argo CD 비밀 사본(SecretStore · ExternalSecret 2) · Kyverno ClusterPolicy 3 · Rollouts Gateway API RBAC · ConfigMap delivery-env.
+# Kyverno · ESO CRD 가 먼저 있어야 하므로 sync-wave 1 입니다. 계정 값은 overlay 의 env.yaml(Terraform 출력 커밋)이 replacements 로 넣습니다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-policies                      # 예: platform-policies
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"          # 예: kyverno · argo-rollouts (wave 0) 뒤
+spec:
+  project: platform
+  source:
+    repoURL: git@github.com:contract2whale-labs/cloud-platform-infrastructure.git
+    targetRevision: main
+    path: gitops/platform/overlays/prod         # 예: Kustomize overlay (kustomize build 가 그대로 적용됨 — 렌더 스크립트 없음)
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd                          # 예: 네임스페이스 리소스(SecretStore · ExternalSecret · ConfigMap)의 기본 네임스페이스; ClusterPolicy · ClusterRole 은 클러스터 범위
+  syncPolicy:
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff: {duration: 30s, factor: 2, maxDuration: 5m}

@@ -1,0 +1,11 @@
+# terraform.tfvars.example — dev platform/operations 루트 모듈
+# terraform.tfvars 로 복사한 뒤 expected_account_id · state_bucket_name 을 work/lab.env 의 DEV_ACCOUNT_ID · DEV_STATE_BUCKET 으로 바꿉니다.
+# terraform.tfvars 는 커밋하지 않습니다. 클러스터 계약과 ASG 이름은 EKS State에서 읽습니다. 알림 ARN은 첫 적용에서는 null이며, 알림 루트 적용 후 실제 ARN을 검토하여 입력합니다.
+
+expected_account_id            = "111111111111"                     # 예: 12자리 AWS 계정 번호 (DEV_ACCOUNT_ID)
+region                         = "ap-northeast-2"                   # 예: "ap-northeast-2" (서울 리전)
+environment                    = "dev"                              # 예: "dev" (이 디렉터리는 dev 만 허용)
+state_bucket_name              = "company-dev-tfstate-111111111111" # 예: backend.hcl 의 bucket 과 같은 Dev State 버킷 (DEV_STATE_BUCKET)
+application_log_retention_days = 90                                 # 예: 90 (허용 목록에 있는 보존 기간)
+# enabled_services 는 기본값(네 도구 모두)을 씁니다. 줄이려면 ["autoscaler", "fluent_bit"] 처럼 부분 집합을 적습니다.
+alerts_topic_arn = null # 알림 루트 적용 후 실제 SNS ARN을 검토하여 설정합니다.

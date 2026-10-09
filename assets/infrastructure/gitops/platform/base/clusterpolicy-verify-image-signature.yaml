@@ -1,0 +1,54 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image-signature
+  annotations:
+    policies.kyverno.io/title: Verify cosign signature and SBOM attestation
+    policies.kyverno.io/description: Images from this account's ECR must carry a cosign
+      signature and an SPDX SBOM attestation made with the delivery signing key (AWS
+      KMS alias/delivery-signing).
+spec:
+  validationFailureAction: Enforce
+  background: false
+  webhookConfiguration:
+    failurePolicy: Fail
+  rules:
+  - name: check-signature
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaceSelector:
+            matchLabels:
+              platform-role: tenant
+    verifyImages:
+    - imageReferences:
+      - REPLACED_BY_KUSTOMIZE
+      required: true
+      mutateDigest: true
+      verifyDigest: true
+      failureAction: Enforce
+      attestors:
+      - count: 1
+        entries:
+        - keys:
+            kms: awskms:///alias/delivery-signing
+            signatureAlgorithm: sha256
+            rekor:
+              ignoreTlog: true
+      attestations:
+      - type: https://spdx.dev/Document
+        attestors:
+        - count: 1
+          entries:
+          - keys:
+              kms: awskms:///alias/delivery-signing
+              signatureAlgorithm: sha256
+              rekor:
+                ignoreTlog: true
+        conditions:
+        - all:
+          - key: '{{ spdxVersion }}'
+            operator: Equals
+            value: SPDX-2.3

@@ -1,0 +1,23 @@
+# gitops/platform/kafka/overlays/prod/topic-epoch-3.yaml
+# 전환 검증과 복귀: 자체 구축 큐로 되돌아갈 때 쓰는 새 토픽입니다. epoch 1 의 platform-traces(관측 파이프라인 manifests/55) 는 그대로 두고 offset 공간을 새로 엽니다 (원본 epoch3.py 가 만들던 topic.json 의 정적 버전).
+# Tempo epoch 3 release 는 plain 리스너(무인증 · superUser ANONYMOUS, 관측 파이프라인 결정 2)로 읽고 쓰므로 KafkaUser ACL 패치는 필요 없습니다 (원본의 tempo-distributor · tempo-consumer 패치 없음).
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: prod-tempo-traces-epoch-3 # 예: prod-tempo-traces-epoch-3 (epoch 2 의 MSK 토픽 prod-tempo-traces-epoch-2 와 같은 이름 규칙)
+  namespace: messaging
+  labels:
+    strimzi.io/cluster: platform-queue # 예: platform-queue (메시지 큐 클러스터와 사용자 클러스터)
+    platform-managed: queue            # 예: queue (운영자 선택 label)
+    app.kubernetes.io/part-of: queue-managed # 예: 메시지 큐 전환 가 만든 자원 표시 (hook down 이 지움)
+spec:
+  partitions: 3 # 예: 3 (epoch 1 · 2 와 같은 파티션 수)
+  replicas: 3   # 예: 3
+  config:
+    min.insync.replicas: '2'     # 예: 2
+    retention.ms: '43200000'     # 예: 12시간
+    retention.bytes: '-1'        # 예: 무제한
+    segment.bytes: '268435456'   # 예: 256 MiB
+    cleanup.policy: delete       # 예: delete
+    compression.type: producer   # 예: producer
+    max.message.bytes: '16000000' # 예: 최소 16,000,000 bytes

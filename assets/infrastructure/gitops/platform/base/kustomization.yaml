@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- secretstore-delivery-secrets.yaml
+- externalsecret-argocd-repo-gitops.yaml
+- externalsecret-argocd-oidc-cognito.yaml
+- clusterpolicy-verify-image-signature.yaml
+- clusterpolicy-restrict-image-registries.yaml
+- clusterpolicy-require-image-digest.yaml
+- clusterrole-argo-rollouts-gateway-api.yaml
+- clusterrolebinding-argo-rollouts-gateway-api.yaml

@@ -1,0 +1,15 @@
+# terraform.tfvars.example — dev account-integrations 루트 모듈
+# 상위 출력을 받는 입력과 보고 버킷: terraform.tfvars 로 복사한 뒤 expected_account_id · state_bucket_name 을 work/lab.env 의 DEV_ACCOUNT_ID · DEV_STATE_BUCKET 으로 바꿉니다.
+# terraform.tfvars 는 커밋하지 않습니다. 운영 기반 계약 · 네트워크 로그 버킷은 입력하지 않습니다 (remote-state.tf 가 platform/operations · network/vpc State 에서 읽음 — P1).
+
+expected_account_id = "111111111111"                     # 예: 12자리 AWS 계정 번호 (DEV_ACCOUNT_ID)
+region              = "ap-northeast-2"                   # 예: "ap-northeast-2" (서울 리전)
+environment         = "dev"                              # 예: "dev" (이 디렉터리는 dev 만 허용)
+state_bucket_name   = "company-dev-tfstate-111111111111" # 예: backend.hcl 의 bucket 과 같은 Dev State 버킷 (DEV_STATE_BUCKET)
+
+# 수신자가 없으면 외부 통보를 완료했다고 보지 않습니다. 주소를 넣고 apply 하면 SNS 확인 메일이 실제로 옵니다.
+notification_email_addresses = [] # 예: ["ops-alerts@example.com"] (본인이 받는 주소만 적습니다)
+
+# 실제 상대의 Role ARN 과 합의한 External ID 가 있을 때만 true 로 바꾸고, external_log_consumer 는 -var-file 이나 환경 변수(TF_VAR_external_log_consumer)로 따로 공급합니다.
+enable_external_log_consumer = false # 예: false (외부 소비자 리소스를 만들지 않음)
+# log_bytes_per_five_minutes_threshold 는 기본값(52428800 = 50 MiB / 5분)을 씁니다.

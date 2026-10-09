@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- networkpolicy-default-deny.yaml
+- networkpolicy-allow-dns-egress.yaml
+- networkpolicy-allow-gateway-ingress.yaml
+- networkpolicy-allow-storefront-ingress.yaml
+- networkpolicy-allow-telemetry-egress.yaml
+- commerce-egress.yaml
+- namespace-contract2whale-demo.yaml
+- serviceaccount-commerce-api.yaml
+- serviceaccount-commerce-web.yaml
+- serviceaccount-database-operator.yaml
+- serviceaccount-delivery-migration.yaml
+- limitrange-application-defaults.yaml
+- resourcequota-application-quota.yaml

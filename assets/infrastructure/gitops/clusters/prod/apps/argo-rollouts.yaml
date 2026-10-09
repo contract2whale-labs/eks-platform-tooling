@@ -1,0 +1,41 @@
+# gitops/clusters/prod/apps/argo-rollouts.yaml
+# 릴리스 판정: Argo Rollouts chart 2.43.1 (app v1.10.0) 을 Argo CD 가 설치합니다. 값은 gitops/platform/values/argo-rollouts.yaml (Gateway API 플러그인 sha256 고정). HTTPRoute 를 고칠 RBAC 는 platform.yaml 이 더합니다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-rollouts                          # 예: argo-rollouts
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"          # 예: 테넌트 앱(Rollout CRD 필요)보다 먼저
+spec:
+  project: platform
+  sources:
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argo-rollouts
+      targetRevision: 2.43.1                   # 예: chart 버전 (app v1.10.0; kubectl-argo-rollouts 1.10.0 과 같은 버전)
+      helm:
+        releaseName: argo-rollouts             # 예: release 이름 (SA argo-rollouts — RBAC binding 대상)
+        valueFiles:
+          - $values/gitops/platform/values/argo-rollouts.yaml
+    - repoURL: git@github.com:contract2whale-labs/cloud-platform-infrastructure.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo-rollouts                   # 예: argo-rollouts
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    managedNamespaceMetadata:
+      labels:
+        platform-role: system
+        component: delivery
+        pod-security.kubernetes.io/enforce: restricted
+        pod-security.kubernetes.io/enforce-version: v1.36
+    retry:
+      limit: 3
+      backoff: {duration: 30s, factor: 2, maxDuration: 5m}

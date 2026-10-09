@@ -1,0 +1,8 @@
+# terraform.tfvars.example — dev platform/app-auth 루트 모듈
+# terraform.tfvars 로 복사한 뒤 expected_account_id · domain_prefix 의 계정 번호를 work/lab.env 의 DEV_ACCOUNT_ID 로, ui_origin 의 playdevops.click 을 work/lab.env 의 PARENT_DOMAIN 으로 바꿉니다. terraform.tfvars 는 커밋하지 않습니다.
+
+expected_account_id = "111111111111"                    # 예: 12자리 AWS 계정 번호 (DEV_ACCOUNT_ID)
+region              = "ap-northeast-2"                  # 예: "ap-northeast-2"
+environment         = "dev"                             # 예: "dev" (이 디렉터리는 dev 만 허용)
+domain_prefix       = "course-111111111111-dev"         # 예: course-<DEV_ACCOUNT_ID>-dev (리전 안에서 유일)
+ui_origin           = "https://dev.playdevops.click:8443" # 예: 브라우저가 보는 UI origin (SSM 터널이면 포트 8443 포함, 공개 도메인이면 포트 없음)

@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: commerce-api
+spec:
+  template:
+    spec:
+      containers:
+      - name: commerce-api
+        env:
+        - name: MEDUSA_BACKEND_URL
+          value: https://app.playdevops.click:8443
+        - name: STORE_CORS
+          value: https://app.playdevops.click:8443
+        - name: ADMIN_CORS
+          value: https://app.playdevops.click:8443
+        - name: AUTH_CORS
+          value: https://app.playdevops.click:8443
+        - name: AWS_REGION
+          value: ap-northeast-2
+        - name: S3_REGION
+          value: ap-northeast-2
+        - name: S3_BUCKET
+          value: example-prod-media-bucket
+        - name: S3_PREFIX
+          value: prod/media
+        - name: S3_FILE_URL
+          value: 
+            https://example-prod-media-bucket.s3.ap-northeast-2.amazonaws.com
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: 
+            service.instance.id=$(POD_NAME),deployment.environment=prod,service.namespace=contract2whale-demo

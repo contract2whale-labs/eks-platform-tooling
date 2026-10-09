@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: contract2whale-demo
+  labels:
+    platform-role: tenant
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.36
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: v1.36
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: v1.36
+    istio.io/dataplane-mode: ambient
+    app.kubernetes.io/part-of: contract2whale
+  annotations:
+    # app-auth.application_input_values.ui_hostname이 HTTPRoute와 같은 호스트를 공급합니다.
+    platform.example/hostname: dev.playdevops.click
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm

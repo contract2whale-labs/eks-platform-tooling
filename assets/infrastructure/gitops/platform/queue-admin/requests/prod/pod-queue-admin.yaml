@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: queue-admin
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm,Delete=confirm
+  labels:
+    app.kubernetes.io/name: queue-admin
+    app.kubernetes.io/part-of: queue-managed
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  activeDeadlineSeconds: 7200
+  nodeSelector:
+    workload: observability
+  tolerations:
+  - key: workload
+    operator: Equal
+    value: observability
+    effect: NoSchedule
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: client
+    image: quay.io/strimzi/kafka:1.2.0-kafka-4.3.1
+    command:
+    - /bin/sh
+    - -c
+    - sleep 7000
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    volumeMounts:
+    - name: tmp
+      mountPath: /tmp
+  volumes:
+  - name: tmp
+    emptyDir: {}

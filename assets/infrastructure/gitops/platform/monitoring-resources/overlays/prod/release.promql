@@ -1,0 +1,24 @@
+# gitops/platform/monitoring-resources/overlays/prod/release.promql
+# 1. Request rate by service
+sum by (service_name) (rate(course_http_requests_total{environment="$environment", cluster="$cluster"}[$__rate_interval]))
+
+# 2. Error ratio (5xx) by service
+sum by (service_name) (rate(course_http_requests_total{environment="$environment", cluster="$cluster", status_code=~"5.."}[$__rate_interval])) / sum by (service_name) (rate(course_http_requests_total{environment="$environment", cluster="$cluster"}[$__rate_interval]))
+
+# 3. p95 latency by service
+histogram_quantile(0.95, sum by (service_name, le) (rate(course_http_request_duration_seconds_bucket{environment="$environment", cluster="$cluster"}[$__rate_interval])))
+
+# 4. Releases observed (last 1h)
+count by (service_name, release) (last_over_time(course_http_requests_total{environment="$environment", cluster="$cluster"}[1h]))
+
+# 5. HTTP 503 increase (5m)
+sum by (service_name) (increase(course_http_requests_total{environment="$environment", cluster="$cluster", status_code="503"}[5m]))
+
+# 6. Request rate by route
+topk(10, sum by (http_route) (rate(course_http_requests_total{environment="$environment", cluster="$cluster"}[$__rate_interval])))
+
+# 7. Scrape targets up (application)
+sum by (service_name) (up{environment="$environment", cluster="$cluster", job=~".*contract2whale.*"})
+
+# 8. Series without recent requests
+count by (service_name) (course_http_requests_total{environment="$environment", cluster="$cluster"} unless rate(course_http_requests_total{environment="$environment", cluster="$cluster"}[$__rate_interval]) > 0)

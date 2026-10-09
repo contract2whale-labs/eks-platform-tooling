@@ -1,0 +1,131 @@
+# gitops/platform/tempo/overlays/prod-e3/values.yaml
+# 전환 검증과 복귀: 자체 구축 큐로 되돌아가는 release(epoch 3) 의 값입니다. epoch 1 의 release(platform-tempo) 와 토픽(platform-traces) 는 그대로 두고, 새 토픽 · 새 S3 접두사로 세 번째 세대를 만듭니다.
+# epoch 2 와 다른 것: 이미지(공식 3.0.3), 큐 주소(클러스터 안 plain 9092 · 무인증), 자격 증명 없음, 토픽 · 접두사가 epoch 3. 같은 것: 구성 요소 · 대수 · zone · 파티션 · 보존 · ServiceAccount.
+fullnameOverride: platform-tempo-e3 # 예: platform-tempo-e3
+reportingEnabled: false
+
+tempo:
+  image:
+    repository: grafana/tempo
+    tag: "3.0.3" # 예: 3.0.3 (공식 release; 자체 구축 큐는 무인증 평문이라 SASL 메커니즘이 필요 없음)
+  structuredConfig:
+    ingest:
+      kafka:
+        auto_create_topic_enabled: false # 예: false (토픽은 Strimzi KafkaTopic 선언이 만듦)
+
+global:
+  extraArgs:
+    - "-config.expand-env=true" # 예: epoch 2 와 같은 실행 인자 (설정 파일 모양을 같게 유지; 채울 변수는 없음)
+
+defaults:
+  nodeSelector: {workload: observability}
+  tolerations:
+    - {key: workload, operator: Equal, value: observability, effect: NoSchedule}
+
+serviceAccount:
+  create: false
+  name: platform-tempo
+  automountServiceAccountToken: false
+
+ingest:
+  kafka:
+    address: platform-queue-kafka-bootstrap.messaging.svc.cluster.local:9092 # 예: platform-queue-kafka-bootstrap.messaging.svc.cluster.local:9092 (메시지 큐 클러스터와 사용자 의 plain 리스너)
+    topic: prod-tempo-traces-epoch-3                 # 예: prod-tempo-traces-epoch-3 (전환 검증과 복귀 이 만드는 KafkaTopic)
+    auto_create_topic_enabled: false
+    auto_create_topic_default_partitions: 3 # 예: 3
+
+traces:
+  otlp:
+    grpc: {enabled: true}
+    http: {enabled: true}  # 예: true (4318; 직접 시험용)
+
+distributor:
+  replicas: 2
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {memory: 512Mi}
+
+blockBuilder:
+  enabled: true
+  replicas: 3
+  resources:
+    requests: {cpu: 200m, memory: 512Mi}
+    limits: {memory: 1Gi}
+
+liveStore:
+  enabled: true
+  replicas: 3
+  resources:
+    requests: {cpu: 100m, memory: 384Mi}
+    limits: {memory: 768Mi}
+  zoneAwareReplication:
+    enabled: true
+    topologyKey: topology.kubernetes.io/zone
+    rolloutOperatorManagedExternally: true   # 예: true (epoch 1 의 rollout-operator 를 씀)
+    zones:
+      - name: zone-a
+        nodeSelector: {topology.kubernetes.io/zone: ap-northeast-2a}
+      - name: zone-b
+        nodeSelector: {topology.kubernetes.io/zone: ap-northeast-2b}
+      - name: zone-c
+        nodeSelector: {topology.kubernetes.io/zone: ap-northeast-2c}
+rollout_operator:
+  enabled: false # 예: false (epoch 1 release 의 rollout-operator 를 그대로 씀)
+
+backendScheduler:
+  enabled: true
+  config:
+    provider:
+      compaction:
+        compaction:
+          block_retention: 720h
+          compacted_block_retention: 1h
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {memory: 512Mi}
+backendWorker:
+  replicas: 1
+  resources:
+    requests: {cpu: 200m, memory: 512Mi}
+    limits: {memory: 1Gi}
+
+querier:
+  replicas: 1
+  resources:
+    requests: {cpu: 200m, memory: 512Mi}
+    limits: {memory: 1Gi}
+queryFrontend:
+  replicas: 1
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {memory: 512Mi}
+
+metricsGenerator:
+  enabled: false
+
+memcached: {enabled: false}
+memcachedExporter: {enabled: false}
+memcachedBloom: {enabled: false}
+memcachedParquetFooter: {enabled: false}
+memcachedFrontendSearch: {enabled: false}
+cache:
+  caches: []
+
+storage:
+  trace:
+    backend: s3
+    s3:
+      bucket: example-prod-traces-bucket
+      prefix: prod/traces-epoch-3 # 예: prod/traces-epoch-3
+      region: ap-northeast-2
+      endpoint: s3.ap-northeast-2.amazonaws.com
+      forcepathstyle: false
+
+metaMonitoring:
+  serviceMonitor:
+    enabled: true
+    labels: {release: platform-monitoring}
+    interval: 30s
+
+server:
+  logLevel: info

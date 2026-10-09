@@ -1,0 +1,47 @@
+# gitops/platform/monitoring-resources/overlays/dev/grafana-datasources.yaml
+# uid 는 대시보드(release-dashboard.yaml)가 가리키는 고정 이름입니다. 비밀번호 · 자격 증명은 넣지 않습니다.
+apiVersion: v1                       # 예: v1
+kind: ConfigMap                      # 예: ConfigMap (sidecar 가 읽어 /etc/grafana/provisioning/datasources 에 놓음)
+metadata:
+  name: platform-grafana-datasources # 예: platform-grafana-datasources
+  namespace: monitoring              # 예: monitoring (sidecar 의 searchNamespace 기본 = release 네임스페이스)
+  labels:
+    grafana_datasource: "1"          # 예: "1" (chart 기본 sidecar.datasources.label · labelValue)
+data:
+  platform-datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Metrics-longterm                       # 예: 화면 이름
+        uid: thanos                                  # 예: thanos (대시보드가 가리키는 uid)
+        type: prometheus                             # 예: prometheus (같은 질의 언어)
+        access: proxy                                # 예: proxy (Grafana 서버가 대신 요청)
+        isDefault: false                             # 예: false (기본은 chart 의 Prometheus)
+        url: http://platform-thanos-query.monitoring.svc.cluster.local:9090   # 예: http://platform-thanos-query.monitoring.svc.cluster.local:9090 (계약 prometheus_endpoint; 최근 + 과거, 복제본 중복 제거)
+        jsonData: {timeInterval: 30s, httpMethod: POST, manageAlerts: false} # 예: 수집 주기 30s · 본문 전송 · 규칙 관리 안 함
+      - name: Logs                                   # 예: 화면 이름
+        uid: loki                                    # 예: loki
+        type: loki                                   # 예: loki
+        access: proxy                                # 예: proxy
+        url: http://platform-loki-gateway.logging.svc.cluster.local         # 예: http://platform-loki-gateway.logging.svc.cluster.local (계약 loki_endpoint)
+        jsonData:
+          maxLines: 1000                             # 예: 1000 (한 번에 가져올 줄 수 상한)
+          derivedFields:                             # 예: 줄의 구조화 메타데이터에서 trace ID 를 찾아 Tempo 로 건너뛰는 단추
+            - name: TraceID
+              matcherType: label                     # 예: label (본문이 아니라 label · 구조화 메타데이터에서 찾음)
+              matcherRegex: trace_id                 # 예: trace_id (OTLP → Loki 구조화 메타데이터 키)
+              url: "$${__value.raw}"                 # 예: $$ 로 provisioning 의 환경 변수 치환을 피함
+              datasourceUid: tempo                   # 예: tempo
+      - name: Traces                                 # 예: 화면 이름
+        uid: tempo                                   # 예: tempo
+        type: tempo                                  # 예: tempo
+        access: proxy                                # 예: proxy
+        url: http://platform-tempo-active-query.monitoring.svc.cluster.local:3200        # 예: http://platform-tempo-active-query.monitoring.svc.cluster.local:3200 (계약 tempo_endpoint; 72-tempo-active-query.yaml)
+        jsonData:
+          tracesToLogsV2:                            # 예: 구간 → 같은 요청의 로그
+            datasourceUid: loki                      # 예: loki
+            tags: [{key: k8s.namespace.name, value: namespace}] # 예: 네임스페이스 태그 대응
+            spanStartTimeShift: -5m                  # 예: -5m
+            spanEndTimeShift: 5m                     # 예: 5m
+            filterByTraceID: true                    # 예: true
+            filterBySpanID: false                    # 예: false
+          nodeGraph: {enabled: true}                 # 예: true (구간 사이 호출 관계 그림)

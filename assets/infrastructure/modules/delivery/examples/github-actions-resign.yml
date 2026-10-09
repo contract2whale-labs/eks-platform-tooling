@@ -1,0 +1,65 @@
+# .github/workflows/resign.yml — **이전 키로 이미 승인된** 이미지 digest 에 현재 서명 키의 서명 · attestation 을 더합니다 (증적과 복구 서명 키 교체 전용)
+# 이미지를 다시 빌드하지 않습니다. 같은 digest 에 서명만 추가하므로 배포 중인 digest 와 롤백 대상 digest 가 그대로 유지됩니다.
+# 서명은 "CI 의 검사(Trivy)를 통과했다" 는 증거입니다. ci.yml 은 검사 전에 이미지를 push 하므로 ECR 에는 검사에 실패한 미서명 digest 도 남습니다 —
+# 그래서 이 워크플로는 새 서명을 만들기 **전에** 이전 키의 서명과 attestation 을 검증하고, 하나라도 없으면 서명 단계에 가지 않습니다(신뢰를 옮길 뿐 새로 만들지 않습니다).
+# 수동 실행(workflow_dispatch)만 있고, main 에서 실행할 때만 동작합니다 — CI Role 의 신뢰 sub 가 ref:refs/heads/main 이라 다른 branch 에서는 역할 인수가 거절됩니다.
+# ECR 은 IMMUTABLE_WITH_EXCLUSION 이고 sha256-*.sig · sha256-*.att 만 갱신을 허용하므로(modules/delivery/main.tf) 서명 태그의 갱신이 통과합니다.
+# 실행: gh workflow run resign.yml --ref main -f digest=sha256:<64자리>
+name: resign
+on:
+  workflow_dispatch:
+    inputs:
+      digest:
+        description: "이미 게시된 이미지 digest (sha256:<64 hex>)"
+        required: true
+        type: string
+permissions:
+  contents: read                                 # 예: checkout 없이도 필요한 최소 권한
+  id-token: write                                # 예: OIDC 토큰 발급 (ci.yml 과 같은 CI Role)
+env:
+  AWS_REGION: ${{ vars.DELIVERY_REGION }}                          # 예: ap-northeast-2
+  CI_ROLE_ARN: ${{ vars.DELIVERY_CI_ROLE_ARN }}                    # 예: ci.yml 과 같은 역할 (kms:Sign · ECR push 가 이 역할에만 있음)
+  IMAGE_REPOSITORY: ${{ vars.DELIVERY_APP_IMAGE_REPOSITORY }}      # 예: 111111111111.dkr.ecr.ap-northeast-2.amazonaws.com/commerce-web
+  SIGNING_KEY: ${{ vars.DELIVERY_SIGNING_KEY_ALIAS }}              # 예: alias/delivery-signing (교체 뒤에는 새 키를 가리킴)
+  PREVIOUS_KEY: alias/delivery-signing-previous                    # 예: Terraform previous_signing_key_id 가 만드는 alias (이전 키 A) — CI Role 은 이 키에 GetPublicKey · DescribeKey 만 가짐
+  DIGEST: ${{ inputs.digest }}                                     # 예: 입력은 env 로만 받아 셸에 직접 끼워 넣지 않음
+concurrency:
+  group: resign-${{ inputs.digest }}              # 예: 같은 digest 의 동시 재서명 방지 (서명 태그를 서로 덮어쓰지 않게)
+  cancel-in-progress: false
+jobs:
+  resign:
+    if: github.ref == 'refs/heads/main'           # 예: main 에서만 (다른 ref 는 역할 신뢰에서도 거절됨)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Validate the digest input
+        run: |
+          # grep 은 줄 단위라 "정상 digest + 개행 + 다른 줄" 도 통과합니다. 값 전체를 한 번에 맞춰 보고, 통과한 뒤에만 환경 파일에 씁니다.
+          [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "digest must be exactly sha256:<64 hex>" >&2; exit 2; }
+          echo "REF=${IMAGE_REPOSITORY}@${DIGEST}" >> "$GITHUB_ENV"
+      - name: Assume the delivery CI role (OIDC)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ env.CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Log in to ECR
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with: {cosign-release: 'v3.1.3'}
+      - name: Require the previous key's signature and attestation (approved image only)
+        run: |
+          cosign verify --key "awskms:///$PREVIOUS_KEY" --insecure-ignore-tlog "$REF" > /dev/null
+          cosign verify-attestation --key "awskms:///$PREVIOUS_KEY" --insecure-ignore-tlog --type spdxjson "$REF" > /dev/null
+      - name: SBOM of the existing digest (Syft, SPDX JSON)
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: ${{ env.REF }}                  # 예: 다시 빌드하지 않고 게시된 digest 를 그대로 스캔
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: false
+      - name: Add the current key's signature and attestation, then verify
+        run: |
+          cosign sign --key "awskms:///$SIGNING_KEY" --tlog-upload=false --use-signing-config=false --new-bundle-format=false --yes "$REF"
+          cosign attest --key "awskms:///$SIGNING_KEY" --tlog-upload=false --use-signing-config=false --new-bundle-format=false --yes --type spdxjson --predicate sbom.spdx.json "$REF"
+          cosign verify --key "awskms:///$SIGNING_KEY" --insecure-ignore-tlog "$REF" > /dev/null
+          cosign verify-attestation --key "awskms:///$SIGNING_KEY" --insecure-ignore-tlog --type spdxjson "$REF" > /dev/null

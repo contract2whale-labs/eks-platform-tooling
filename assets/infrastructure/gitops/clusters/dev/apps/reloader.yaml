@@ -1,0 +1,41 @@
+# gitops/clusters/dev/apps/reloader.yaml
+# 마이그레이션 실행과 재기동 (Day-2): stakater/reloader chart 2.2.17 (app v1.4.22). Secret · ConfigMap 변경을 감지해 annotation 이 있는 Rollout · Deployment 를 롤링 재기동합니다 (ESO 가 반영한 비밀 회전이 실행 중인 Pod 에 닿게).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: reloader                               # 예: reloader
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  sources:
+    - repoURL: https://stakater.github.io/stakater-charts # 예: 공식 Helm 저장소
+      chart: reloader
+      targetRevision: 2.2.17                   # 예: chart 버전 (app v1.4.22)
+      helm:
+        releaseName: reloader
+        valueFiles:
+          - $values/gitops/platform/values/reloader.yaml
+    - repoURL: git@github.com:contract2whale-labs/cloud-platform-infrastructure.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: reloader                        # 예: reloader
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    managedNamespaceMetadata:
+      labels:
+        platform-role: system
+        component: delivery
+        pod-security.kubernetes.io/enforce: restricted
+        pod-security.kubernetes.io/enforce-version: v1.36
+    retry:
+      limit: 3
+      backoff: {duration: 30s, factor: 2, maxDuration: 5m}

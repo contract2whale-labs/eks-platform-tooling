@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: application-quota
+  namespace: contract2whale-demo
+spec:
+  hard:
+    requests.cpu: '3'
+    requests.memory: 6Gi
+    limits.memory: 12Gi
+    pods: '20'
+    services: '6'
+    count/jobs.batch: '5'

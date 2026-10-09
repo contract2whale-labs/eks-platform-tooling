@@ -1,0 +1,11 @@
+# terraform.tfvars.example — dev platform/gateway 루트 모듈
+# terraform.tfvars 로 복사한 뒤 expected_account_id · state_bucket_name 을 work/lab.env 의 DEV_ACCOUNT_ID · DEV_STATE_BUCKET 으로 바꿉니다.
+# terraform.tfvars 는 커밋하지 않습니다. 클러스터 계약 · 공개 zone · NLB 서브넷은 입력하지 않습니다 (remote-state.tf 가 eks · account-baseline-dns · network/vpc State 에서 읽음).
+
+expected_account_id      = "111111111111"                     # 예: 12자리 AWS 계정 번호 (DEV_ACCOUNT_ID)
+region                   = "ap-northeast-2"                   # 예: "ap-northeast-2" (서울 리전)
+environment              = "dev"                              # 예: "dev" (이 디렉터리는 dev 만 허용)
+state_bucket_name        = "company-dev-tfstate-111111111111" # 예: backend.hcl 의 bucket 과 같은 Dev State 버킷 (DEV_STATE_BUCKET)
+exposure_mode            = "internal"                         # 예: "internal" (최종 Dev; public · waf 는 Prod/운영 환경 검토)
+allowed_client_cidrs     = []                                 # 예: [] (CIDR 우회 없음; 승인 접속은 승인된 개발자의 Private Dev 접근 의 SG 출발지 규칙)
+existing_private_zone_id = null                               # 예: null (VPC 전용 private zone 을 새로 만듦)

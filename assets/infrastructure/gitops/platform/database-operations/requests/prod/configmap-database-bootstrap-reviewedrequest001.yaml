@@ -1,0 +1,32 @@
+# 예시 요청입니다. 동기화 전에 모든 data 입력을 현재 승인된 named outputs와 대조·교체합니다. 실제 계정·주소·Secret ARN·DB 버전은 예시를 채택하지 않습니다.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: database-bootstrap-reviewedrequest001
+  namespace: contract2whale-demo
+  labels:
+    app.kubernetes.io/name: database-bootstrap
+    app.kubernetes.io/part-of: contract2whale
+    contract2whale.course/run-id: a3d58c60-12ef-4cf1-8ed9-76f16b880001
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=confirm
+    argocd.argoproj.io/sync-wave: '0'
+immutable: true
+data:
+  DATA_ENVIRONMENT: prod
+  DATA_ACCOUNT_ID: '222222222222'
+  DATA_REGION: ap-northeast-2
+  DATA_DB_ADDRESS: example-prod-database.ap-northeast-2.rds.amazonaws.com
+  DATA_DB_PORT: '5432'
+  DATA_DB_NAME: commercedb
+  DATA_DB_SCHEMA: public
+  DATA_DB_ENGINE_VERSION: '17'
+  DATA_REDIS_ADDRESS: example-prod-cache.apn2.cache.amazonaws.com
+  DATA_REDIS_PORT: '6379'
+  DATA_REDIS_TLS: 'true'
+  DATA_DB_MIGRATION_ROLE: commerce_migrator
+  DATA_DB_RUNTIME_ROLE: commerce_runtime
+  DATA_MASTER_SECRET_ARN: arn:aws:secretsmanager:ap-northeast-2:222222222222:secret:rds!cluster-example
+  DATA_MIGRATION_SECRET_ARN: arn:aws:secretsmanager:ap-northeast-2:222222222222:secret:commerce/prod/migration-example
+  DATA_RUNTIME_SECRET_ARN: arn:aws:secretsmanager:ap-northeast-2:222222222222:secret:commerce/prod/runtime-example
+  DATA_APP_SECRET_ARN: arn:aws:secretsmanager:ap-northeast-2:222222222222:secret:commerce/prod/application-example

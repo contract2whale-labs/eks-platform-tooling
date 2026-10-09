@@ -1,0 +1,93 @@
+# gitops/platform/admission-policy/base/policies.yaml
+# 클러스터 공통 서비스: Kubernetes 1.36 의 stable ValidatingAdmissionPolicy(CEL) 입니다. team-* 및 contract2whale-demo namespace 의 보안 label 누락과 완화를 거부합니다.
+apiVersion: admissionregistration.k8s.io/v1 # 예: admissionregistration.k8s.io/v1 (정식 버전)
+kind: ValidatingAdmissionPolicy             # 예: ValidatingAdmissionPolicy (검사 내용을 담는 객체)
+metadata:
+  name: tenant-namespace-security # 예: tenant-namespace-security (Binding 이 가리킬 이름)
+spec:
+  failurePolicy: Fail # 예: Fail (CEL 을 평가하지 못하면 요청을 거부)
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]              # 예: [""] (핵심 API 그룹)
+        apiVersions: [v1]            # 예: [v1]
+        operations: [CREATE, UPDATE] # 예: [CREATE, UPDATE] (삭제 요청은 대상이 아님)
+        resources: [namespaces]      # 예: [namespaces] (검사할 자원 종류)
+  matchConditions:
+    - name: tenant-prefix # 예: tenant-prefix (조건 이름, 조사할 때 표시됨)
+      # 예: 이름이 team- 으로 시작하거나 contract2whale-demo 인 요청만 검사 대상으로 좁힙니다
+      expression: object.metadata.name.startsWith('team-') || object.metadata.name == 'contract2whale-demo'
+  validations:
+    # 예: 키가 있는지 먼저 보고 값을 읽어 label 누락을 의도한 거부로 처리합니다
+    - expression: >-
+        has(object.metadata.labels) &&
+        'platform-role' in object.metadata.labels &&
+        object.metadata.labels['platform-role'] == 'tenant' &&
+        'pod-security.kubernetes.io/enforce' in object.metadata.labels &&
+        object.metadata.labels['pod-security.kubernetes.io/enforce'] == 'restricted' &&
+        'pod-security.kubernetes.io/enforce-version' in object.metadata.labels &&
+        object.metadata.labels['pod-security.kubernetes.io/enforce-version'] == 'v1.36'
+      message: Application namespaces require tenant role and restricted PSA pinned to v1.36. # 예: 거부 응답에 담기는 문장
+---
+apiVersion: admissionregistration.k8s.io/v1 # 예: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding      # 예: ValidatingAdmissionPolicyBinding (정책을 실제로 적용하는 객체)
+metadata:
+  name: tenant-namespace-security # 예: tenant-namespace-security
+spec:
+  policyName: tenant-namespace-security # 예: 위 정책의 metadata.name 과 정확히 같은 값
+  # CEL 의 false 는 여기서 Deny 됩니다. Fail 은 CEL 평가 오류에 대한 정책입니다.
+  validationActions: [Deny, Audit] # 예: [Deny, Audit] (거부하고 감사 기록도 남김)
+---
+# Tenant 가 별도의 공개 LB/ExternalName 을 만들어 Gateway 정책을 우회하지 못하게 합니다.
+apiVersion: admissionregistration.k8s.io/v1 # 예: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy             # 예: ValidatingAdmissionPolicy
+metadata:
+  name: tenant-clusterip-services # 예: tenant-clusterip-services
+spec:
+  failurePolicy: Fail # 예: Fail (평가 오류 시 요청을 거부)
+  matchConstraints:
+    namespaceSelector:
+      matchLabels: {platform-role: tenant} # 예: {platform-role: tenant} (이 label 이 붙은 namespace 만 대상)
+    resourceRules:
+      - apiGroups: [""]              # 예: [""] (핵심 API 그룹)
+        apiVersions: [v1]            # 예: [v1]
+        operations: [CREATE, UPDATE] # 예: [CREATE, UPDATE]
+        resources: [services]        # 예: [services] (검사할 자원 종류)
+  validations:
+    # 예: type 이 없거나 ClusterIP 이고 externalIPs 가 없거나 비어 있어야 통과합니다
+    - expression: (!has(object.spec.type) || object.spec.type == 'ClusterIP') && (!has(object.spec.externalIPs) || size(object.spec.externalIPs) == 0)
+      message: Tenant services must use ClusterIP and must not set externalIPs. # 예: 거부 응답에 담기는 문장
+---
+apiVersion: admissionregistration.k8s.io/v1 # 예: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding      # 예: ValidatingAdmissionPolicyBinding
+metadata:
+  name: tenant-clusterip-services # 예: tenant-clusterip-services
+spec:
+  policyName: tenant-clusterip-services # 예: 위 정책의 metadata.name 과 같은 값
+  validationActions: [Deny, Audit]      # 예: [Deny, Audit]
+---
+# 신규 tenant 진입은 Gateway HTTPRoute 로만 제공합니다 (관련 구성). 기존 annotation/snippet 을 허용하지 않습니다.
+apiVersion: admissionregistration.k8s.io/v1 # 예: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy             # 예: ValidatingAdmissionPolicy
+metadata:
+  name: tenant-no-legacy-ingress # 예: tenant-no-legacy-ingress
+spec:
+  failurePolicy: Fail # 예: Fail (평가 오류 시 요청을 거부)
+  matchConstraints:
+    namespaceSelector:
+      matchLabels: {platform-role: tenant} # 예: {platform-role: tenant}
+    resourceRules:
+      - apiGroups: [networking.k8s.io] # 예: [networking.k8s.io] (진입 자원이 속한 그룹)
+        apiVersions: [v1]              # 예: [v1]
+        operations: [CREATE, UPDATE]   # 예: [CREATE, UPDATE]
+        resources: [ingresses]         # 예: [ingresses] (검사할 자원 종류)
+  validations:
+    - expression: "false" # 예: "false" (앞에서 고른 요청을 모두 거부)
+      message: Use the platform Gateway HTTPRoute contract; tenant Ingress is disabled. # 예: 거부 응답에 담기는 문장
+---
+apiVersion: admissionregistration.k8s.io/v1 # 예: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding      # 예: ValidatingAdmissionPolicyBinding
+metadata:
+  name: tenant-no-legacy-ingress # 예: tenant-no-legacy-ingress
+spec:
+  policyName: tenant-no-legacy-ingress # 예: 위 정책의 metadata.name 과 같은 값
+  validationActions: [Deny, Audit]     # 예: [Deny, Audit]

@@ -1,0 +1,24 @@
+# terraform.tfvars.example — dev platform/queue 루트 모듈
+# terraform.tfvars 로 복사한 뒤 expected_account_id · state_bucket_name 을 work/lab.env 의 DEV_ACCOUNT_ID · DEV_STATE_BUCKET 으로, kafka_version 을 조회 결과 값으로 바꿉니다.
+# terraform.tfvars 는 커밋하지 않습니다. 네트워크 계약과 노드 Security Group 은 입력하지 않습니다 (remote-state.tf 가 State 2곳에서 읽음).
+
+expected_account_id = "111111111111"                     # 예: 12자리 AWS 계정 번호 (DEV_ACCOUNT_ID)
+region              = "ap-northeast-2"                   # 예: "ap-northeast-2" (서울 리전)
+environment         = "dev"                              # 예: "dev" (이 디렉터리는 dev 만 허용)
+state_bucket_name   = "company-dev-tfstate-111111111111" # 예: backend.hcl 의 bucket 과 같은 Dev State 버킷 (DEV_STATE_BUCKET)
+
+# 브로커 버전은 조회로 확인한 값을 적습니다 (검증 불가).
+#   aws kafka list-kafka-versions --region ap-northeast-2 --query 'KafkaVersions[?Status==`ACTIVE`].Version' --output text
+kafka_version = "3.9.0" # 예: 3.9 계열 또는 4.0 계열 중 조회 결과에 있는 값
+
+# 브로커 유형과 저장 용량입니다. 유형별 파티션 수 한도는 조회로 확인합니다.
+broker_instance_type = "kafka.t3.small" # 예: "kafka.t3.small" (실습 규모; 원본과 같은 값)
+broker_storage_gib   = 30               # 예: 30 (원본 100 → 실습 규모)
+
+# epoch 2 의 설정입니다. 토픽 이름은 자체 구축 큐(platform-traces)와 분리하고 파티션 · 복제 기준은 유지합니다.
+topic_name          = "dev-tempo-traces-epoch-2" # 예: "dev-tempo-traces-epoch-2"
+partitions          = 3                          # 예: 3 (파티션 수 = block-builder · live-store 수)
+replication_factor  = 3                          # 예: 3 (Replication Factor = 브로커 대수)
+min_insync_replicas = 2                          # 예: 2 (최소 동기 복제 수)
+writer_username     = "tempo-distributor"        # 예: 자체 구축 큐와 같은 사용자 이름
+reader_username     = "tempo-consumer"           # 예: 자체 구축 큐와 같은 사용자 이름

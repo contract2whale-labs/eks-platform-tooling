@@ -1,0 +1,41 @@
+# gitops/clusters/dev/apps/kyverno.yaml
+# 권한과 승인 제어: Kyverno chart 3.9.0 (app v1.19.0) 을 Argo CD 가 설치합니다. 값은 gitops/platform/values/kyverno.yaml (Git). 네임스페이스는 Argo CD 가 만들며 label(platform-role system · PSS restricted)을 함께 붙입니다.
+# 정책은 platform.yaml이 적용합니다. sync-wave는 child Application 등록 순서이며 실제 CRD·controller Ready 뒤 정책을 동기화합니다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kyverno                                # 예: kyverno
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"          # 예: child Application 등록 wave (정책 적용 전 CRD Ready 별도 확인)
+spec:
+  project: platform
+  sources:
+    - repoURL: https://kyverno.github.io/kyverno/ # 예: 공식 Helm 저장소
+      chart: kyverno
+      targetRevision: 3.9.0                    # 예: chart 버전 (app v1.19.0)
+      helm:
+        releaseName: kyverno                   # 예: release 이름 (SA 이름 kyverno-admission-controller 등이 여기서 파생 — Pod Identity 연결과 일치)
+        valueFiles:
+          - $values/gitops/platform/values/kyverno.yaml
+    - repoURL: git@github.com:contract2whale-labs/cloud-platform-infrastructure.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kyverno                         # 예: kyverno (modules/delivery kyverno_namespace · Pod Identity 연결 네임스페이스)
+  syncPolicy:
+    # 승인한 chart 버전과 values Git revision을 확인한 뒤 수동 동기화합니다.
+    # automated 객체가 있으면 prune/selfHeal=false여도 자동 동기화가 활성화됩니다.
+    syncOptions:
+      - CreateNamespace=true                   # 예: 네임스페이스를 Argo CD 가 생성
+      - ServerSideApply=true                   # 예: CRD 22개 (client-side apply 의 annotation 크기 한계 회피)
+    managedNamespaceMetadata:
+      labels:
+        platform-role: system                  # 예: system (클러스터 보안 기반 · 운영 도구 와 같은 계약 — 어드미션 웹훅 제외 대상)
+        component: delivery                    # 예: delivery
+        pod-security.kubernetes.io/enforce: restricted # 예: restricted
+        pod-security.kubernetes.io/enforce-version: v1.36
+    retry:
+      limit: 3
+      backoff: {duration: 30s, factor: 2, maxDuration: 5m}

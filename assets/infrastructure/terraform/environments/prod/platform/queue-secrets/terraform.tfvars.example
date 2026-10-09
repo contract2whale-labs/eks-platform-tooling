@@ -1,0 +1,4 @@
+expected_account_id = "222222222222"
+region = "ap-northeast-2"
+environment = "prod"
+state_bucket_name = "company-prod-tfstate-222222222222"

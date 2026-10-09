@@ -1,0 +1,38 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-ingress
+  namespace: contract2whale-demo
+spec:
+  podSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: In
+      values:
+      - commerce-web
+      - commerce-api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: platform-gateway
+      podSelector:
+        matchLabels:
+          gateway.envoyproxy.io/owning-gateway-name: platform
+    ports:
+    - protocol: TCP
+      port: 3000
+    - protocol: TCP
+      port: 9000
+    - protocol: TCP
+      port: 15008
+  - from:
+    - ipBlock:
+        cidr: 169.254.7.127/32
+    ports:
+    - protocol: TCP
+      port: 3000
+    - protocol: TCP
+      port: 9000

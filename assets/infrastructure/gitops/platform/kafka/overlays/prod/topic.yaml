@@ -1,0 +1,20 @@
+# gitops/platform/kafka/overlays/prod/topic.yaml
+apiVersion: kafka.strimzi.io/v1 # 예: kafka.strimzi.io/v1
+kind: KafkaTopic                # 예: KafkaTopic (Topic Operator 가 브로커에 만듦)
+metadata:
+  name: platform-traces # 예: platform-traces (Tempo ingest.kafka.topic; 메시지 큐 전환 인계 계약)
+  namespace: messaging  # 예: messaging
+  labels:
+    strimzi.io/cluster: platform-queue # 예: platform-queue
+    platform-managed: queue            # 예: queue (운영자 선택 label)
+spec:
+  partitions: 3 # 예: 3 (Tempo block-builder · live-store 대수와 같음)
+  replicas: 3   # 예: 3 (브로커 3대)
+  config:
+    min.insync.replicas: '2'     # 예: 2 (브로커 설정과 같음)
+    retention.ms: '43200000'     # 예: 12시간 (Kafka 보존; Tempo block 30일 · S3 40일과 구분)
+    retention.bytes: '-1'        # 예: 무제한 (시간으로만 정리; 브로커 볼륨 40Gi 는 유입량으로 확인)
+    segment.bytes: '268435456'   # 예: 256 MiB
+    cleanup.policy: delete       # 예: delete
+    compression.type: producer   # 예: producer (보내는 쪽 압축 그대로)
+    max.message.bytes: '16000000' # 예: 16,000,000 bytes (Tempo 기본 producer record 상한과 batch overhead를 수용)

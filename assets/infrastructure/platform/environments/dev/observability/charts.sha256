@@ -1,0 +1,5 @@
+16c2893ceb6227430ca439263d66d2969c2f3e91b33d907e5fc503eb28dbbd6c  charts/kube-prometheus-stack-88.6.2.tgz
+951fcc41fdc9597ed2bf326b3c9273a2073994871debe81f576e3eb23caa405b  charts/loki-18.13.0.tgz
+66897a36e9eeda71ce227236fb952c0501ce7d7f6387e0318ca15046950ee04d  charts/opentelemetry-collector-0.173.1.tgz
+0f8a50b2f19bd99482f9fd6e17cf42902f72f9e594a136813ac3f0b7af422efd  charts/strimzi-kafka-operator-1.2.0.tgz
+f182b1c078be2c833c7c175a7fc1b7334520204fac8c4ee01ca6f4282659591c  charts/tempo-distributed-3.5.1.tgz

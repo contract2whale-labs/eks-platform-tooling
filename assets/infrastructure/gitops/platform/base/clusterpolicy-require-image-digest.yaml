@@ -1,0 +1,44 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-image-digest
+  annotations:
+    policies.kyverno.io/title: Require an image digest and forbid the latest tag
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  - name: no-latest-tag
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaceSelector:
+            matchLabels:
+              platform-role: tenant
+    validate:
+      message: Tenant images must not use the latest tag.
+      pattern:
+        spec:
+          =(initContainers):
+          - image: '!*:latest'
+          containers:
+          - image: '!*:latest'
+  - name: digest-required
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaceSelector:
+            matchLabels:
+              platform-role: tenant
+    validate:
+      message: Tenant images must be pinned by digest (@sha256:...).
+      pattern:
+        spec:
+          =(initContainers):
+          - image: '*@sha256:*'
+          containers:
+          - image: '*@sha256:*'

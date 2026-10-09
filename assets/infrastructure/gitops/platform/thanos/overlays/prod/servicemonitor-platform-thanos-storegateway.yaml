@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: platform-thanos-storegateway
+  namespace: monitoring
+  labels:
+    release: platform-monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: platform-thanos
+      app.kubernetes.io/component: storegateway
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s

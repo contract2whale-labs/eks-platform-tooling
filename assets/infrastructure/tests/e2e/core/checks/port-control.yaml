@@ -1,0 +1,31 @@
+# tests/e2e/core/checks/port-control.yaml
+# scenario 실행 동안만 존재하는 양성 통제입니다. helper의 같은 EXIT trap이 삭제합니다.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: network-port-control
+  namespace: observability
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: network-port-control}
+  template:
+    metadata:
+      labels: {app: network-port-control}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: probe
+        image: platform-probe
+        command: [python3, -c, "import time; time.sleep(3600)"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities: {drop: [ALL]}
+        resources:
+          requests: {cpu: 10m, memory: 32Mi}
+          limits: {memory: 128Mi}

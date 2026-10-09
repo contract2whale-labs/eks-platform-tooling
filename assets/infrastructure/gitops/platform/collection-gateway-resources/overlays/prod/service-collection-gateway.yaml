@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: collection-gateway
+  namespace: observability
+  labels:
+    app.kubernetes.io/component: collection-gateway
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/component: collection-gateway
+  ports:
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+    protocol: TCP
+  - name: otlp-http
+    port: 4318
+    targetPort: 4318
+    protocol: TCP
+  - name: metrics
+    port: 8888
+    targetPort: 8888
+    protocol: TCP
+  - name: app-metrics
+    port: 8889
+    targetPort: 8889
+    protocol: TCP

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# drills/tests/fake/aws — pool-probe.test.sh 용 가짜 AWS CLI (secretsmanager get-secret-value 만). 실패 주입: FAKE_SECRET_FAIL=1
+set -u
+printf 'aws %s\n' "$*" >> "$FAKE_LOG"
+id=""
+while [ $# -gt 0 ]; do case "$1" in --secret-id) id="$2"; shift 2 ;; *) shift ;; esac; done
+if [ "${FAKE_SECRET_FAIL:-}" = 1 ]; then echo 'An error occurred (AccessDeniedException) when calling the GetSecretValue operation: denied' >&2; exit 254; fi
+cat "$FAKE_DIR/secrets/${id##*:}.json"

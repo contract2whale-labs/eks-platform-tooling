@@ -1,0 +1,16 @@
+# gitops/platform/ztunnel/values/dev.yaml
+# 서비스 메시: 노드 대리자(ztunnel) 설치 값입니다. 노드마다 하나씩 떠서 Pod 사이 트래픽을 감싸고 받는 쪽에서 판정합니다.
+profile: ambient                  # 예: ambient (chart profile)
+namespace: istio-system           # 예: istio-system (DaemonSet 이 들어갈 네임스페이스)
+istioNamespace: istio-system      # 예: istio-system (컨트롤 플레인 · CA 를 찾을 네임스페이스)
+logLevel: info                    # 예: info (ztunnel 로그 수준; 접근 기록은 info 에서 남음)
+terminationGracePeriodSeconds: 30 # 예: 30 (종료 시 기존 연결을 정리할 시간)
+resources:
+  requests: {cpu: 200m, memory: 512Mi} # 예: cpu 200m, memory 512Mi (노드마다 1개)
+  limits: {memory: 1Gi}                # 예: memory 1Gi (메모리 상한)
+# 노드마다 하나씩 뜨므로 뒤 챕터가 붙일 taint 를 모두 견뎌야 합니다. 이 목록은 chart 기본 목록을 대체합니다. 하나라도 빠지면 그 노드가 메시 밖에 남습니다.
+tolerations:
+  - key: workload      # 예: workload (관련 구성 노드 그룹의 taint 키)
+    operator: Exists   # 예: Exists (값과 무관하게 견딤)
+    effect: NoSchedule # 예: NoSchedule
+nodeSelector: {} # 예: {} (selector 제한 없음; 실제 배치는 taint·자원·DaemonSet 상태로 확인)

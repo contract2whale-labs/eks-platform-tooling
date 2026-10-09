@@ -1,0 +1,65 @@
+# gitops/platform/overlays/dev/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base                                 # 예: SecretStore · ExternalSecret 2 · ClusterPolicy 3 · Rollouts RBAC 2
+  - env.yaml                                   # 예: ConfigMap delivery-env (argocd 네임스페이스; 운영자가 kubectl 로 값을 확인할 수 있음)
+replacements:
+  - source:
+      kind: ConfigMap
+      name: delivery-env
+      fieldPath: data.ARGOCD_SECRETS_ROLE_ARN   # 예: delivery 의 비밀 읽기 IAM 역할 ARN
+    targets:
+      - select: {kind: SecretStore, name: delivery-secrets}
+        fieldPaths: [spec.provider.aws.role]   # 예: ESO controller 가 맡을 Role (assume-role chaining)
+  - source:
+      kind: ConfigMap
+      name: delivery-env
+      fieldPath: data.GITOPS_SSH_URL            # 예: git@github.com:<owner>/cloud-platform-infrastructure.git
+    targets:
+      - select: {kind: ExternalSecret, name: argocd-repo-gitops}
+        fieldPaths: [spec.target.template.data.url] # 예: Argo CD 저장소 자격 증명의 url (Application repoURL 과 같은 문자열)
+  - source:
+      kind: ConfigMap
+      name: delivery-env
+      fieldPath: data.ECR_IMAGE_PATTERN         # 예: <account>.dkr.ecr.ap-northeast-2.amazonaws.com/*
+    targets:
+      - select: {kind: ClusterPolicy, name: verify-image-signature}
+        fieldPaths:
+          - spec.rules.[name=check-signature].verifyImages.0.imageReferences.0 # 예: 서명 검증 대상 이미지
+      - select: {kind: ClusterPolicy, name: restrict-image-registries}
+        fieldPaths:
+          - spec.rules.[name=ecr-only].validate.pattern.spec.=(initContainers).0.image      # 예: 허용 레지스트리 패턴 3곳
+          - spec.rules.[name=ecr-only].validate.pattern.spec.containers.0.image
+          - spec.rules.[name=ecr-only].validate.pattern.spec.=(ephemeralContainers).0.image
+  - source:
+      kind: ConfigMap
+      name: delivery-env
+      fieldPath: data.REGION
+    targets:
+      - select: {kind: SecretStore, name: delivery-secrets}
+        fieldPaths: [spec.provider.aws.region]
+  - source:
+      kind: ConfigMap
+      name: delivery-env
+      fieldPath: data.REPO_SECRET_NAME
+    targets:
+      - select: {kind: ExternalSecret, name: argocd-repo-gitops}
+        fieldPaths: [spec.data.0.remoteRef.key]
+  - source:
+      kind: ConfigMap
+      name: delivery-env
+      fieldPath: data.OIDC_SECRET_NAME
+    targets:
+      - select: {kind: ExternalSecret, name: argocd-oidc-cognito}
+        fieldPaths: [spec.data.0.remoteRef.key]
+# 키 회전 중(증적과 복구): 이전 키도 신뢰하도록 서명 · SBOM attestation 두 attestors 에 항목을 추가합니다. Terraform previous_signing_key_id 로 alias/delivery-signing-previous 를 만든 뒤 아래 주석을 풀고 커밋, 재서명이 끝나면 되돌립니다.
+# patches:
+#   - target: {kind: ClusterPolicy, name: verify-image-signature}
+#     patch: |-
+#       - op: add
+#         path: /spec/rules/0/verifyImages/0/attestors/0/entries/-
+#         value: {keys: {kms: "awskms:///alias/delivery-signing-previous", signatureAlgorithm: sha256, rekor: {ignoreTlog: true}}}
+#       - op: add
+#         path: /spec/rules/0/verifyImages/0/attestations/0/attestors/0/entries/-
+#         value: {keys: {kms: "awskms:///alias/delivery-signing-previous", signatureAlgorithm: sha256, rekor: {ignoreTlog: true}}}
