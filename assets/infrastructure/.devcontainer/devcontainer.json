@@ -2,10 +2,7 @@
   "name": "Platform engineering toolchain",
   "build": {
     "dockerfile": "../tooling/Dockerfile",
-    "context": "../tooling",
-    "options": [
-      "--platform=linux/amd64"
-    ]
+    "context": "../tooling"
   },
   "workspaceFolder": "/workspace/cloud-platform-infrastructure",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/cloud-platform-infrastructure,type=bind",
